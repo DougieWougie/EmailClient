@@ -55,6 +55,10 @@
         android:id="@+id/settingsFragment"
         android:name="com.emailclient.presentation.settings.SettingsFragment"
         android:label="Settings"
-        tools:layout="@layout/fragment_settings" />
+        tools:layout="@layout/fragment_settings">
+        <action
+            android:id="@+id/action_settings_to_inbox"
+            app:destination="@id/inboxFragment" />
+    </fragment>
 
 </navigation>

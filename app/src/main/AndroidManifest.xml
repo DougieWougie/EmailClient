@@ -40,6 +40,12 @@
             </intent-filter>
         </activity>
 
+        <!-- Account Setup Activity -->
+        <activity
+            android:name=".presentation.setup.AccountSetupActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
         <!-- Email Sync Worker -->
         <provider
             android:name="androidx.startup.InitializationProvider"

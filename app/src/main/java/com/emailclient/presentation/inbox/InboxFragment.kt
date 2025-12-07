@@ -43,6 +43,7 @@ class InboxFragment : Fragment() {
 
         setupRecyclerView()
         setupSwipeRefresh()
+        setupFab()
         observeViewModel()
     }
 
@@ -66,6 +67,13 @@ class InboxFragment : Fragment() {
     private fun setupSwipeRefresh() {
         binding.swipeRefreshLayout.setOnRefreshListener {
             viewModel.refreshEmails()
+        }
+    }
+
+    private fun setupFab() {
+        binding.fabCompose.setOnClickListener {
+            val action = InboxFragmentDirections.actionInboxToCompose(null, false, false)
+            findNavController().navigate(action)
         }
     }
 
