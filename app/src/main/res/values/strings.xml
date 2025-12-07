@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Email Client</string>
+
+    <!-- Navigation -->
+    <string name="nav_inbox">Inbox</string>
+    <string name="nav_sent">Sent</string>
+    <string name="nav_drafts">Drafts</string>
+    <string name="nav_trash">Trash</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Common Actions -->
+    <string name="action_compose">Compose</string>
+    <string name="action_send">Send</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_reply">Reply</string>
+    <string name="action_reply_all">Reply All</string>
+    <string name="action_forward">Forward</string>
+    <string name="action_refresh">Refresh</string>
+    <string name="action_search">Search</string>
+
+    <!-- Email Details -->
+    <string name="email_from">From:</string>
+    <string name="email_to">To:</string>
+    <string name="email_cc">Cc:</string>
+    <string name="email_subject">Subject:</string>
+    <string name="email_date">Date:</string>
+
+    <!-- Account Setup -->
+    <string name="account_setup_title">Add Email Account</string>
+    <string name="account_email_hint">Email address</string>
+    <string name="account_password_hint">Password</string>
+    <string name="account_imap_server_hint">IMAP Server</string>
+    <string name="account_smtp_server_hint">SMTP Server</string>
+    <string name="account_port_hint">Port</string>
+    <string name="account_add">Add Account</string>
+
+    <!-- Errors -->
+    <string name="error_generic">An error occurred</string>
+    <string name="error_network">Network error. Please check your connection.</string>
+    <string name="error_authentication">Authentication failed. Please check your credentials.</string>
+    <string name="error_sync">Sync failed</string>
+
+    <!-- Empty States -->
+    <string name="empty_inbox">No emails in inbox</string>
+    <string name="empty_sent">No sent emails</string>
+    <string name="empty_drafts">No drafts</string>
+    <string name="empty_search">No results found</string>
+</resources>
