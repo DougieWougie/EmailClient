@@ -1,7 +1,11 @@
 package com.emailclient.data.repository
 
+import com.emailclient.data.local.CredentialManager
+import com.emailclient.data.local.dao.AccountDao
 import com.emailclient.data.local.dao.FolderDao
+import com.emailclient.data.local.entities.FolderEntity
 import com.emailclient.data.local.entities.toDomain
+import com.emailclient.data.remote.imap.IMAPService
 import com.emailclient.domain.model.Folder
 import com.emailclient.domain.model.FolderType
 import com.emailclient.domain.repository.FolderRepository
@@ -11,12 +15,13 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 /**
- * Implementation of FolderRepository
- *
- * Note: Folder sync operations will use IMAP LIST/LSUB commands via JavaMail.
+ * Implementation of FolderRepository with IMAP folder sync
  */
 class FolderRepositoryImpl @Inject constructor(
-    private val folderDao: FolderDao
+    private val folderDao: FolderDao,
+    private val accountDao: AccountDao,
+    private val credentialManager: CredentialManager,
+    private val imapService: IMAPService
 ) : FolderRepository {
 
     override fun getFoldersByAccount(accountId: Long): Flow<List<Folder>> {
@@ -65,13 +70,55 @@ class FolderRepositoryImpl @Inject constructor(
     }
 
     override suspend fun syncFolders(accountId: Long): Result<Unit> {
-        // TODO: Implement IMAP folder list sync using JavaMail
-        // This will fetch the folder structure from the server and update the local database
         return try {
-            // Placeholder implementation
-            Result.Success(Unit)
+            // Get account and credentials
+            val accountEntity = accountDao.getAccountById(accountId)
+                ?: return Result.Error(Exception("Account not found"))
+
+            val password = credentialManager.getPassword(accountId)
+                ?: return Result.Error(Exception("Password not found"))
+
+            val account = accountEntity.toDomain()
+
+            // Connect to IMAP and fetch folders
+            val store = imapService.connect(account, password)
+
+            try {
+                val folders = imapService.fetchFolders(store, accountId)
+
+                // Update existing folders or insert new ones
+                folders.forEach { folder ->
+                    val existing = folderDao.getFolderByName(accountId, folder.name)
+                    if (existing != null) {
+                        // Update existing folder
+                        folderDao.updateFolder(
+                            existing.copy(
+                                displayName = folder.displayName,
+                                type = folder.type
+                            )
+                        )
+                    } else {
+                        // Insert new folder
+                        folderDao.insertFolder(
+                            FolderEntity(
+                                accountId = accountId,
+                                name = folder.name,
+                                displayName = folder.displayName,
+                                type = folder.type,
+                                unreadCount = 0,
+                                totalCount = 0,
+                                syncEnabled = folder.syncEnabled
+                            )
+                        )
+                    }
+                }
+
+                Result.Success(Unit)
+            } finally {
+                imapService.disconnect(store)
+            }
         } catch (e: Exception) {
-            Result.Error(e, "Failed to sync folders")
+            Result.Error(e, "Failed to sync folders: ${e.message}")
         }
     }
 

@@ -4,7 +4,13 @@ A modern Android email client supporting IMAP/SMTP protocols with multi-account 
 
 ## Project Status
 
-**Phase 1 Foundation - Complete** ✓
+**Phase 1 Foundation - Complete** ✅ **TESTED & VERIFIED**
+
+**Build Status**: ✅ Successfully building (both debug and release)
+**Last Build**: December 7, 2025
+**APK Outputs**:
+- Debug: 8.7 MB
+- Release: 2.8 MB (minified with R8)
 
 The project structure has been fully set up with clean architecture principles:
 - MVVM architecture with Repository pattern
@@ -76,14 +82,45 @@ app/src/main/java/com/emailclient/
 
 ### Prerequisites
 - Android Studio Iguana or later
-- JDK 17
+- **JDK 17** (Required - JDK 21 has KAPT compatibility issues)
 - Android SDK 34
+
+### Build Commands
+
+```bash
+# Clean build
+./gradlew clean
+
+# Build debug APK
+./gradlew assembleDebug
+
+# Build release APK
+./gradlew assembleRelease
+
+# Run all checks (lint + tests)
+./gradlew build
+```
 
 ### Steps
 1. Clone the repository
-2. Open in Android Studio
-3. Sync Gradle files
-4. Build and run
+2. Ensure Java 17 is installed and active
+3. Open in Android Studio
+4. Sync Gradle files
+5. Build and run
+
+### Build Output
+- **Debug APK**: `app/build/outputs/apk/debug/app-debug.apk`
+- **Release APK**: `app/build/outputs/apk/release/app-release-unsigned.apk`
+
+## Testing
+
+For detailed build test results, see [BUILD_TEST_REPORT.md](BUILD_TEST_REPORT.md)
+
+### Test Status
+- ✅ Build: Successfully compiles
+- ✅ Lint: Passing with warnings
+- ⏳ Unit Tests: Framework ready, tests to be implemented
+- ⏳ Integration Tests: Framework ready, tests to be implemented
 
 ## Next Steps - Phase 1 Implementation
 

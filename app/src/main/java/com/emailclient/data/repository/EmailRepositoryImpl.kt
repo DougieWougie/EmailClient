@@ -1,7 +1,13 @@
 package com.emailclient.data.repository
 
+import com.emailclient.data.local.CredentialManager
+import com.emailclient.data.local.dao.AccountDao
 import com.emailclient.data.local.dao.EmailDao
+import com.emailclient.data.local.dao.FolderDao
 import com.emailclient.data.local.entities.toDomain
+import com.emailclient.data.local.entities.toEntity
+import com.emailclient.data.remote.imap.IMAPService
+import com.emailclient.data.remote.smtp.SMTPService
 import com.emailclient.domain.model.Email
 import com.emailclient.domain.repository.EmailRepository
 import com.emailclient.util.Result
@@ -10,13 +16,15 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 /**
- * Implementation of EmailRepository
- *
- * Note: Email protocol operations (IMAP sync, SMTP send) will be implemented
- * in Phase 1 using JavaMail library.
+ * Implementation of EmailRepository with IMAP/SMTP support
  */
 class EmailRepositoryImpl @Inject constructor(
-    private val emailDao: EmailDao
+    private val emailDao: EmailDao,
+    private val accountDao: AccountDao,
+    private val folderDao: FolderDao,
+    private val credentialManager: CredentialManager,
+    private val imapService: IMAPService,
+    private val smtpService: SMTPService
 ) : EmailRepository {
 
     override fun getEmailsByFolder(folderId: Long): Flow<List<Email>> {
@@ -61,13 +69,49 @@ class EmailRepositoryImpl @Inject constructor(
     }
 
     override suspend fun syncEmails(accountId: Long, folderId: Long): Result<Unit> {
-        // TODO: Implement IMAP sync using JavaMail
-        // This will fetch emails from the server and store them in the local database
         return try {
-            // Placeholder implementation
-            Result.Success(Unit)
+            // Get account and credentials
+            val accountEntity = accountDao.getAccountById(accountId)
+                ?: return Result.Error(Exception("Account not found"))
+
+            val password = credentialManager.getPassword(accountId)
+                ?: return Result.Error(Exception("Password not found"))
+
+            val account = accountEntity.toDomain()
+
+            // Get folder info
+            val folderEntity = folderDao.getFolderById(folderId)
+                ?: return Result.Error(Exception("Folder not found"))
+
+            // Connect to IMAP and fetch emails
+            val store = imapService.connect(account, password)
+
+            try {
+                val emails = imapService.fetchEmails(
+                    store = store,
+                    accountId = accountId,
+                    folderId = folderId,
+                    folderName = folderEntity.name,
+                    limit = 50
+                )
+
+                // Store emails in local database
+                emailDao.insertEmails(emails.map { it.toEntity() })
+
+                // Update folder counts
+                val unreadCount = emails.count { !it.isRead }
+                folderDao.updateUnreadCount(folderId, unreadCount)
+                folderDao.updateTotalCount(folderId, emails.size)
+
+                // Update last sync time
+                accountDao.updateLastSyncTime(accountId, System.currentTimeMillis())
+
+                Result.Success(Unit)
+            } finally {
+                imapService.disconnect(store)
+            }
         } catch (e: Exception) {
-            Result.Error(e, "Failed to sync emails")
+            Result.Error(e, "Failed to sync emails: ${e.message}")
         }
     }
 
@@ -80,12 +124,35 @@ class EmailRepositoryImpl @Inject constructor(
         body: String,
         isHtml: Boolean
     ): Result<Unit> {
-        // TODO: Implement SMTP send using JavaMail
         return try {
-            // Placeholder implementation
-            Result.Success(Unit)
+            // Get account and credentials
+            val accountEntity = accountDao.getAccountById(accountId)
+                ?: return Result.Error(Exception("Account not found"))
+
+            val password = credentialManager.getPassword(accountId)
+                ?: return Result.Error(Exception("Password not found"))
+
+            val account = accountEntity.toDomain()
+
+            // Send email via SMTP
+            val success = smtpService.sendEmail(
+                account = account,
+                password = password,
+                to = to,
+                cc = cc,
+                bcc = bcc,
+                subject = subject,
+                body = body,
+                isHtml = isHtml
+            )
+
+            if (success) {
+                Result.Success(Unit)
+            } else {
+                Result.Error(Exception("Failed to send email"))
+            }
         } catch (e: Exception) {
-            Result.Error(e, "Failed to send email")
+            Result.Error(e, "Failed to send email: ${e.message}")
         }
     }
 
