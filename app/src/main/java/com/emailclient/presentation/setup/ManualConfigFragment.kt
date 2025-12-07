@@ -43,6 +43,8 @@ class ManualConfigFragment : Fragment() {
         setupSpinners()
         setupButtons()
         observeViewModel()
+        observeDiscoveredConfig()
+        setupAutoDetect()
     }
 
     private fun setupSpinners() {
@@ -67,6 +69,18 @@ class ManualConfigFragment : Fragment() {
         binding.buttonTestConnection.setOnClickListener {
             if (validateInputs()) {
                 testConnection()
+            }
+        }
+    }
+
+    private fun setupAutoDetect() {
+        // Trigger auto-discovery when email field loses focus
+        binding.editTextEmail.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus) {
+                val email = binding.editTextEmail.text.toString().trim()
+                if (email.isNotEmpty() && email.contains("@")) {
+                    viewModel.discoverSettings(email)
+                }
             }
         }
     }
@@ -165,6 +179,30 @@ class ManualConfigFragment : Fragment() {
                             binding.buttonTestConnection.isEnabled = true
                         }
 
+                        is AccountSetupState.Discovering -> {
+                            binding.progressBar.visibility = View.VISIBLE
+                            binding.buttonTestConnection.isEnabled = false
+                        }
+
+                        is AccountSetupState.DiscoverySuccess -> {
+                            binding.progressBar.visibility = View.GONE
+                            binding.buttonTestConnection.isEnabled = true
+
+                            Snackbar.make(
+                                binding.root,
+                                "Settings detected for ${state.config.provider}",
+                                Snackbar.LENGTH_SHORT
+                            ).show()
+
+                            viewModel.resetState()
+                        }
+
+                        is AccountSetupState.DiscoveryFailed -> {
+                            binding.progressBar.visibility = View.GONE
+                            binding.buttonTestConnection.isEnabled = true
+                            viewModel.resetState()
+                        }
+
                         is AccountSetupState.Testing -> {
                             binding.progressBar.visibility = View.VISIBLE
                             binding.buttonTestConnection.isEnabled = false
@@ -209,6 +247,40 @@ class ManualConfigFragment : Fragment() {
                     }
                 }
             }
+        }
+    }
+
+    private fun observeDiscoveredConfig() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.discoveredConfig.collect { config ->
+                    config?.let {
+                        // Pre-fill IMAP settings
+                        binding.editTextImapHost.setText(it.imapConfig.host)
+                        binding.editTextImapPort.setText(it.imapConfig.port.toString())
+                        binding.spinnerImapSecurity.setSelection(
+                            getSecurityTypePosition(it.imapConfig.securityType)
+                        )
+
+                        // Pre-fill SMTP settings
+                        binding.editTextSmtpHost.setText(it.smtpConfig.host)
+                        binding.editTextSmtpPort.setText(it.smtpConfig.port.toString())
+                        binding.spinnerSmtpSecurity.setSelection(
+                            getSecurityTypePosition(it.smtpConfig.securityType)
+                        )
+
+                        android.util.Log.d("ManualConfig", "Pre-filled settings for ${it.provider}")
+                    }
+                }
+            }
+        }
+    }
+
+    private fun getSecurityTypePosition(securityType: SecurityType): Int {
+        return when (securityType) {
+            SecurityType.NONE -> 0
+            SecurityType.SSL_TLS -> 1
+            SecurityType.STARTTLS -> 2
         }
     }
 

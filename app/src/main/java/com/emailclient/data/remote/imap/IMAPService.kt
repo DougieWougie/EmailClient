@@ -30,41 +30,71 @@ class IMAPService @Inject constructor() {
         account: Account,
         password: String
     ): Store = withContext(Dispatchers.IO) {
-        val props = Properties().apply {
-            put("mail.store.protocol", "imap")
-            put("mail.imap.host", account.imapConfig.host)
-            put("mail.imap.port", account.imapConfig.port.toString())
+        try {
+            val props = Properties().apply {
+                put("mail.store.protocol", "imap")
+                put("mail.imap.host", account.imapConfig.host)
+                put("mail.imap.port", account.imapConfig.port.toString())
 
-            when (account.imapConfig.securityType) {
-                SecurityType.SSL_TLS -> {
-                    put("mail.imap.ssl.enable", "true")
-                    put("mail.imap.ssl.protocols", "TLSv1.2 TLSv1.3")
+                when (account.imapConfig.securityType) {
+                    SecurityType.SSL_TLS -> {
+                        put("mail.imap.ssl.enable", "true")
+                        put("mail.imap.ssl.protocols", "TLSv1.2 TLSv1.3")
+                        put("mail.imap.ssl.trust", "*")
+                        put("mail.imap.ssl.checkserveridentity", "false")
+                    }
+                    SecurityType.STARTTLS -> {
+                        put("mail.imap.starttls.enable", "true")
+                        put("mail.imap.starttls.required", "true")
+                        put("mail.imap.ssl.protocols", "TLSv1.2 TLSv1.3")
+                        put("mail.imap.ssl.trust", "*")
+                        put("mail.imap.ssl.checkserveridentity", "false")
+                    }
+                    SecurityType.NONE -> {
+                        // No encryption
+                    }
                 }
-                SecurityType.STARTTLS -> {
-                    put("mail.imap.starttls.enable", "true")
-                    put("mail.imap.starttls.required", "true")
-                    put("mail.imap.ssl.protocols", "TLSv1.2 TLSv1.3")
-                }
-                SecurityType.NONE -> {
-                    // No encryption
-                }
+
+                // Connection settings
+                put("mail.imap.connectiontimeout", "30000") // 30 seconds
+                put("mail.imap.timeout", "30000")
+
+                // Android-specific settings
+                put("mail.imap.ssl.socketFactory.class", "javax.net.ssl.SSLSocketFactory")
+                put("mail.imap.ssl.socketFactory.fallback", "false")
             }
 
-            // Connection settings
-            put("mail.imap.connectiontimeout", "10000") // 10 seconds
-            put("mail.imap.timeout", "10000")
+            android.util.Log.d("IMAPService", "Connecting to IMAP: ${account.imapConfig.host}:${account.imapConfig.port} with ${account.imapConfig.securityType}")
+
+            val session = Session.getInstance(props)
+            val store = session.getStore("imap")
+
+            store.connect(
+                account.imapConfig.host,
+                account.imapConfig.username,
+                password
+            )
+
+            store
+        } catch (e: AuthenticationFailedException) {
+            e.printStackTrace()
+            throw Exception("IMAP Authentication failed. Please check your email and password.", e)
+        } catch (e: MessagingException) {
+            e.printStackTrace()
+            val message = when {
+                e.message?.contains("Unknown host") == true ->
+                    "Cannot find IMAP server '${account.imapConfig.host}'. Please check the server address."
+                e.message?.contains("Connection refused") == true || e.message?.contains("failed") == true ->
+                    "Cannot connect to IMAP server '${account.imapConfig.host}:${account.imapConfig.port}'. Please check the server and port."
+                e.message?.contains("timeout") == true ->
+                    "Connection to IMAP server timed out. Please check your internet connection."
+                else -> "IMAP connection failed: ${e.message ?: "Unknown error"}"
+            }
+            throw Exception(message, e)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            throw Exception("IMAP connection failed: ${e.message ?: e.javaClass.simpleName}", e)
         }
-
-        val session = Session.getInstance(props)
-        val store = session.getStore("imap")
-
-        store.connect(
-            account.imapConfig.host,
-            account.imapConfig.username,
-            password
-        )
-
-        store
     }
 
     /**

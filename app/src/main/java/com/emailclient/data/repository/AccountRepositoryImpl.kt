@@ -162,25 +162,38 @@ class AccountRepositoryImpl @Inject constructor(
 
     override suspend fun testConnection(account: Account, password: String): Result<Boolean> {
         return try {
+            android.util.Log.d("AccountRepo", "Testing IMAP connection to ${account.imapConfig.host}:${account.imapConfig.port}")
+
             // Test IMAP connection
             val store = imapService.connect(account, password)
             val imapConnected = store.isConnected
             imapService.disconnect(store)
 
             if (!imapConnected) {
-                return Result.Error(Exception("IMAP connection failed"))
+                android.util.Log.e("AccountRepo", "IMAP connection failed - store not connected")
+                return Result.Error(
+                    Exception("IMAP connection failed - not connected"),
+                    "IMAP connection failed - not connected"
+                )
             }
+
+            android.util.Log.d("AccountRepo", "IMAP connection successful, testing SMTP to ${account.smtpConfig.host}:${account.smtpConfig.port}")
 
             // Test SMTP connection
-            val smtpConnected = smtpService.testConnection(account, password)
-
-            if (!smtpConnected) {
-                return Result.Error(Exception("SMTP connection failed"))
+            try {
+                smtpService.testConnection(account, password)
+            } catch (e: Exception) {
+                // SMTP test failed with detailed error from SMTPService
+                android.util.Log.e("AccountRepo", "SMTP connection failed: ${e.message}", e)
+                return Result.Error(e, e.message ?: "SMTP connection failed")
             }
 
+            android.util.Log.d("AccountRepo", "Both IMAP and SMTP connections successful")
             Result.Success(true)
         } catch (e: Exception) {
-            Result.Error(e, "Connection test failed: ${e.message}")
+            // IMAP test failed with detailed error from IMAPService
+            android.util.Log.e("AccountRepo", "IMAP connection failed: ${e.message}", e)
+            Result.Error(e, e.message ?: "Connection test failed")
         }
     }
 }

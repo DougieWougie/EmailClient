@@ -2,6 +2,7 @@ package com.emailclient.presentation.setup
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.emailclient.data.remote.AutoDiscoveryService
 import com.emailclient.domain.model.Account
 import com.emailclient.domain.model.AccountType
 import com.emailclient.domain.model.SecurityType
@@ -22,11 +23,57 @@ import javax.inject.Inject
 @HiltViewModel
 class AccountSetupViewModel @Inject constructor(
     private val accountRepository: AccountRepository,
-    private val workManagerHelper: WorkManagerHelper
+    private val workManagerHelper: WorkManagerHelper,
+    private val autoDiscoveryService: AutoDiscoveryService
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<AccountSetupState>(AccountSetupState.Idle)
     val uiState: StateFlow<AccountSetupState> = _uiState.asStateFlow()
+
+    private val _discoveredConfig = MutableStateFlow<AutoDiscoveryService.DiscoveredConfig?>(null)
+    val discoveredConfig: StateFlow<AutoDiscoveryService.DiscoveredConfig?> = _discoveredConfig.asStateFlow()
+
+    /**
+     * Discover email server settings automatically
+     */
+    fun discoverSettings(email: String) {
+        viewModelScope.launch {
+            _uiState.value = AccountSetupState.Discovering
+
+            val config = autoDiscoveryService.discoverSettings(email)
+            _discoveredConfig.value = config
+
+            if (config != null) {
+                android.util.Log.d("AccountSetup", "Auto-discovery successful: ${config.provider} via ${config.source}")
+                _uiState.value = AccountSetupState.DiscoverySuccess(config)
+            } else {
+                android.util.Log.d("AccountSetup", "Auto-discovery failed, manual configuration required")
+                _uiState.value = AccountSetupState.DiscoveryFailed
+            }
+        }
+    }
+
+    /**
+     * Test connection with discovered settings
+     */
+    fun testDiscoveredConnection(
+        email: String,
+        password: String,
+        displayName: String,
+        config: AutoDiscoveryService.DiscoveredConfig
+    ) {
+        testConnection(
+            email = email,
+            password = password,
+            displayName = displayName,
+            imapHost = config.imapConfig.host,
+            imapPort = config.imapConfig.port,
+            imapSecurity = config.imapConfig.securityType,
+            smtpHost = config.smtpConfig.host,
+            smtpPort = config.smtpConfig.port,
+            smtpSecurity = config.smtpConfig.securityType
+        )
+    }
 
     /**
      * Test connection to email servers
@@ -68,9 +115,13 @@ class AccountSetupViewModel @Inject constructor(
                     _uiState.value = AccountSetupState.TestSuccess(account, password)
                 }
                 is Result.Error -> {
-                    _uiState.value = AccountSetupState.Error(
-                        result.message ?: "Connection test failed"
-                    )
+                    // Try message first, then exception message, then generic
+                    val errorMessage = result.message
+                        ?: result.exception.message
+                        ?: "Connection test failed - please check your settings"
+
+                    android.util.Log.e("AccountSetup", "Connection test failed: $errorMessage", result.exception)
+                    _uiState.value = AccountSetupState.Error(errorMessage)
                 }
                 else -> {
                     _uiState.value = AccountSetupState.Error("Unknown error occurred")
@@ -141,6 +192,9 @@ class AccountSetupViewModel @Inject constructor(
  */
 sealed class AccountSetupState {
     object Idle : AccountSetupState()
+    object Discovering : AccountSetupState()
+    data class DiscoverySuccess(val config: AutoDiscoveryService.DiscoveredConfig) : AccountSetupState()
+    object DiscoveryFailed : AccountSetupState()
     object Testing : AccountSetupState()
     data class TestSuccess(val account: Account, val password: String) : AccountSetupState()
     object Adding : AccountSetupState()

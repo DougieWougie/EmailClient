@@ -55,11 +55,15 @@ class SMTPService @Inject constructor() {
                 SecurityType.SSL_TLS -> {
                     put("mail.smtp.ssl.enable", "true")
                     put("mail.smtp.ssl.protocols", "TLSv1.2 TLSv1.3")
+                    put("mail.smtp.ssl.trust", "*")
+                    put("mail.smtp.ssl.checkserveridentity", "false")
                 }
                 SecurityType.STARTTLS -> {
                     put("mail.smtp.starttls.enable", "true")
                     put("mail.smtp.starttls.required", "true")
                     put("mail.smtp.ssl.protocols", "TLSv1.2 TLSv1.3")
+                    put("mail.smtp.ssl.trust", "*")
+                    put("mail.smtp.ssl.checkserveridentity", "false")
                 }
                 SecurityType.NONE -> {
                     // No encryption
@@ -67,9 +71,13 @@ class SMTPService @Inject constructor() {
             }
 
             // Connection settings
-            put("mail.smtp.connectiontimeout", "10000") // 10 seconds
-            put("mail.smtp.timeout", "10000")
-            put("mail.smtp.writetimeout", "10000")
+            put("mail.smtp.connectiontimeout", "30000") // 30 seconds
+            put("mail.smtp.timeout", "30000")
+            put("mail.smtp.writetimeout", "30000")
+
+            // Android-specific settings
+            put("mail.smtp.ssl.socketFactory.class", "javax.net.ssl.SSLSocketFactory")
+            put("mail.smtp.ssl.socketFactory.fallback", "false")
         }
 
         return Session.getInstance(props, object : Authenticator() {
@@ -141,10 +149,14 @@ class SMTPService @Inject constructor() {
      * Test SMTP connection
      */
     suspend fun testConnection(account: Account, password: String): Boolean = withContext(Dispatchers.IO) {
+        var transport: Transport? = null
         try {
-            val session = createSession(account, password)
-            val transport = session.getTransport("smtp")
+            android.util.Log.d("SMTPService", "Testing SMTP connection to ${account.smtpConfig.host}:${account.smtpConfig.port} with ${account.smtpConfig.securityType}")
 
+            val session = createSession(account, password)
+            transport = session.getTransport("smtp")
+
+            android.util.Log.d("SMTPService", "Connecting to SMTP server...")
             transport.connect(
                 account.smtpConfig.host,
                 account.smtpConfig.port,
@@ -153,12 +165,32 @@ class SMTPService @Inject constructor() {
             )
 
             val isConnected = transport.isConnected
-            transport.close()
-
+            android.util.Log.d("SMTPService", "SMTP connection result: $isConnected")
             isConnected
+        } catch (e: AuthenticationFailedException) {
+            e.printStackTrace()
+            throw Exception("SMTP Authentication failed. Please check your email and password.", e)
+        } catch (e: MessagingException) {
+            e.printStackTrace()
+            val message = when {
+                e.message?.contains("Unknown host") == true ->
+                    "Cannot find SMTP server '${account.smtpConfig.host}'. Please check the server address."
+                e.message?.contains("Connection refused") == true || e.message?.contains("failed") == true ->
+                    "Cannot connect to SMTP server '${account.smtpConfig.host}:${account.smtpConfig.port}'. Please check the server and port."
+                e.message?.contains("timeout") == true ->
+                    "Connection to SMTP server timed out. Please check your internet connection."
+                else -> "SMTP connection failed: ${e.message ?: "Unknown error"}"
+            }
+            throw Exception(message, e)
         } catch (e: Exception) {
             e.printStackTrace()
-            false
+            throw Exception("SMTP connection failed: ${e.message ?: e.javaClass.simpleName}", e)
+        } finally {
+            try {
+                transport?.close()
+            } catch (e: Exception) {
+                // Ignore close errors
+            }
         }
     }
 }
