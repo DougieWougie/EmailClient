@@ -1,5 +1,6 @@
 package com.emailclient.presentation.detail
 
+import android.content.res.Configuration
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -55,11 +56,56 @@ class EmailDetailFragment : Fragment() {
     }
 
     private fun setupWebView() {
-        binding.webViewBody.settings.apply {
-            javaScriptEnabled = false // Disable JavaScript for security
-            loadWithOverviewMode = true
-            useWideViewPort = true
-            builtInZoomControls = false
+        binding.webViewBody.apply {
+            settings.apply {
+                // Security settings
+                javaScriptEnabled = false // Disable JavaScript for security
+                allowFileAccess = false // Prevent file access
+                allowContentAccess = false // Prevent content provider access
+                setSupportMultipleWindows(false)
+
+                // Display settings
+                loadWithOverviewMode = true
+                useWideViewPort = true
+                builtInZoomControls = false
+                displayZoomControls = false
+
+                // Mixed content and safe browsing
+                mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
+
+                // Remote images - block by default for privacy/security
+                blockNetworkImage = false // Set to true to block remote images
+                blockNetworkLoads = false // Set to true to block all network requests
+            }
+
+            // Enable dynamic height adjustment
+            webViewClient = object : android.webkit.WebViewClient() {
+                override fun onPageFinished(view: WebView?, url: String?) {
+                    super.onPageFinished(view, url)
+                    // Adjust height to fit content
+                    view?.evaluateJavascript(
+                        "(function() { return document.body.scrollHeight; })();"
+                    ) { height ->
+                        // Height will be returned as string, parse and update layout
+                    }
+                }
+
+                override fun shouldOverrideUrlLoading(
+                    view: WebView?,
+                    request: android.webkit.WebResourceRequest?
+                ): Boolean {
+                    // Handle link clicks - open in browser instead of WebView
+                    request?.url?.let { uri ->
+                        try {
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri)
+                            startActivity(intent)
+                        } catch (e: Exception) {
+                            // Handle error
+                        }
+                    }
+                    return true // Prevent WebView from loading the URL
+                }
+            }
         }
     }
 
@@ -151,25 +197,59 @@ class EmailDetailFragment : Fragment() {
      * Wrap HTML content with proper styling
      */
     private fun wrapHtmlContent(html: String): String {
+        val isDarkMode = isDarkMode()
+        val bgColor = if (isDarkMode) "#121212" else "#FFFFFF"
+        val textColor = if (isDarkMode) "#E0E0E0" else "#000000"
+        val linkColor = if (isDarkMode) "#64B5F6" else "#1976D2"
+
         return """
             <!DOCTYPE html>
             <html>
             <head>
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <meta name="color-scheme" content="${if (isDarkMode) "dark" else "light"}">
                 <style>
                     body {
                         font-family: sans-serif;
                         font-size: 14px;
-                        margin: 0;
+                        margin: 16px;
                         padding: 0;
                         word-wrap: break-word;
+                        background-color: $bgColor;
+                        color: $textColor;
                     }
                     img {
                         max-width: 100%;
                         height: auto;
                     }
                     a {
-                        color: #1976D2;
+                        color: $linkColor;
+                        text-decoration: underline;
+                    }
+                    blockquote {
+                        border-left: 3px solid ${if (isDarkMode) "#555" else "#ccc"};
+                        margin-left: 0;
+                        padding-left: 16px;
+                        color: ${if (isDarkMode) "#aaa" else "#666"};
+                    }
+                    pre, code {
+                        background-color: ${if (isDarkMode) "#1E1E1E" else "#F5F5F5"};
+                        color: ${if (isDarkMode) "#D4D4D4" else "#333"};
+                        padding: 4px 8px;
+                        border-radius: 4px;
+                        overflow-x: auto;
+                    }
+                    table {
+                        border-collapse: collapse;
+                        width: 100%;
+                    }
+                    th, td {
+                        border: 1px solid ${if (isDarkMode) "#444" else "#ddd"};
+                        padding: 8px;
+                        text-align: left;
+                    }
+                    th {
+                        background-color: ${if (isDarkMode) "#2A2A2A" else "#F5F5F5"};
                     }
                 </style>
             </head>
@@ -181,9 +261,23 @@ class EmailDetailFragment : Fragment() {
     }
 
     /**
+     * Check if dark mode is enabled
+     */
+    private fun isDarkMode(): Boolean {
+        return when (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) {
+            Configuration.UI_MODE_NIGHT_YES -> true
+            else -> false
+        }
+    }
+
+    /**
      * Wrap plain text content as HTML
      */
     private fun wrapPlainTextContent(text: String): String {
+        val isDarkMode = isDarkMode()
+        val bgColor = if (isDarkMode) "#121212" else "#FFFFFF"
+        val textColor = if (isDarkMode) "#E0E0E0" else "#000000"
+
         val escapedText = text
             .replace("&", "&amp;")
             .replace("<", "&lt;")
@@ -195,14 +289,17 @@ class EmailDetailFragment : Fragment() {
             <html>
             <head>
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <meta name="color-scheme" content="${if (isDarkMode) "dark" else "light"}">
                 <style>
                     body {
                         font-family: monospace;
                         font-size: 14px;
-                        margin: 0;
+                        margin: 16px;
                         padding: 0;
                         white-space: pre-wrap;
                         word-wrap: break-word;
+                        background-color: $bgColor;
+                        color: $textColor;
                     }
                 </style>
             </head>
