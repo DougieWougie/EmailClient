@@ -2,6 +2,8 @@ package com.emailclient.presentation.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.emailclient.data.local.AppPreferences
+import com.emailclient.data.local.SyncIntervalOption
 import com.emailclient.domain.model.Account
 import com.emailclient.domain.repository.AccountRepository
 import com.emailclient.util.Result
@@ -21,7 +23,8 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val accountRepository: AccountRepository,
-    private val workManagerHelper: WorkManagerHelper
+    private val workManagerHelper: WorkManagerHelper,
+    private val appPreferences: AppPreferences
 ) : ViewModel() {
 
     /**
@@ -117,6 +120,30 @@ class SettingsViewModel @Inject constructor(
             workManagerHelper.syncNow()
             _uiState.value = SettingsUiState.SyncStarted
         }
+    }
+
+    /**
+     * Get current sync interval
+     */
+    fun getSyncInterval(): Int {
+        return appPreferences.getSyncInterval()
+    }
+
+    /**
+     * Set sync interval and reschedule work
+     */
+    fun setSyncInterval(minutes: Int) {
+        appPreferences.setSyncInterval(minutes)
+        // Reschedule sync with new interval
+        workManagerHelper.schedulePeriodicSync()
+        android.util.Log.d("SettingsViewModel", "Sync interval updated to $minutes minutes")
+    }
+
+    /**
+     * Get available sync interval options
+     */
+    fun getSyncIntervalOptions(): List<SyncIntervalOption> {
+        return appPreferences.getSyncIntervalOptions()
     }
 
     fun resetState() {

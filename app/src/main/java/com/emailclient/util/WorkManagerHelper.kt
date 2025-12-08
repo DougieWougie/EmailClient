@@ -2,6 +2,7 @@ package com.emailclient.util
 
 import android.content.Context
 import androidx.work.*
+import com.emailclient.data.local.AppPreferences
 import com.emailclient.workers.EmailSyncWorker
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.TimeUnit
@@ -13,19 +14,34 @@ import javax.inject.Singleton
  */
 @Singleton
 class WorkManagerHelper @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val appPreferences: AppPreferences
 ) {
 
     /**
-     * Schedule periodic email sync (every 15 minutes)
+     * Schedule periodic email sync with configurable interval
      */
     fun schedulePeriodicSync() {
+        val intervalMinutes = appPreferences.getSyncInterval()
+
+        // If interval is 0, cancel all syncs (manual only mode)
+        if (intervalMinutes == 0) {
+            android.util.Log.d("WorkManagerHelper", "Manual sync only - canceling periodic sync")
+            cancelSync()
+            return
+        }
+
+        // WorkManager minimum interval is 15 minutes
+        val actualInterval = maxOf(intervalMinutes, 15)
+
+        android.util.Log.d("WorkManagerHelper", "Scheduling periodic sync every $actualInterval minutes")
+
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
         val syncRequest = PeriodicWorkRequestBuilder<EmailSyncWorker>(
-            15, TimeUnit.MINUTES
+            actualInterval.toLong(), TimeUnit.MINUTES
         )
             .setConstraints(constraints)
             .setBackoffCriteria(
@@ -37,7 +53,7 @@ class WorkManagerHelper @Inject constructor(
 
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             EmailSyncWorker.WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.UPDATE, // Update to change interval while preserving running work
             syncRequest
         )
     }

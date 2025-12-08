@@ -171,18 +171,28 @@ class EmailDetailFragment : Fragment() {
         }
         binding.textDate.text = dateFormat.format(email.receivedDate)
 
-        // Display email body
-        if (email.isHtml && email.htmlBody != null) {
+        // Display email body - auto-detect HTML even if not flagged
+        val htmlContent = email.htmlBody ?: email.body
+        val hasHtmlTags = containsHtmlTags(htmlContent)
+        val shouldRenderAsHtml = email.isHtml || hasHtmlTags
+
+        android.util.Log.d("EmailDetail", "Displaying email: ${email.subject}")
+        android.util.Log.d("EmailDetail", "isHtml flag: ${email.isHtml}, hasHtmlTags: $hasHtmlTags, shouldRenderAsHtml: $shouldRenderAsHtml")
+        android.util.Log.d("EmailDetail", "Content preview: ${htmlContent.take(100)}")
+
+        if (shouldRenderAsHtml) {
             // Load HTML content
+            android.util.Log.d("EmailDetail", "Rendering as HTML")
             binding.webViewBody.loadDataWithBaseURL(
                 null,
-                wrapHtmlContent(email.htmlBody),
+                wrapHtmlContent(htmlContent),
                 "text/html",
                 "UTF-8",
                 null
             )
         } else {
             // Load plain text as HTML
+            android.util.Log.d("EmailDetail", "Rendering as plain text")
             binding.webViewBody.loadDataWithBaseURL(
                 null,
                 wrapPlainTextContent(email.body),
@@ -191,6 +201,18 @@ class EmailDetailFragment : Fragment() {
                 null
             )
         }
+    }
+
+    /**
+     * Detect if content contains HTML tags
+     */
+    private fun containsHtmlTags(content: String): Boolean {
+        // Check for common HTML tags
+        val htmlTagPattern = Regex(
+            "<(div|p|br|span|a|img|table|tr|td|th|h[1-6]|ul|ol|li|strong|em|b|i|u|html|body|head)[\\s>]",
+            RegexOption.IGNORE_CASE
+        )
+        return htmlTagPattern.containsMatchIn(content)
     }
 
     /**

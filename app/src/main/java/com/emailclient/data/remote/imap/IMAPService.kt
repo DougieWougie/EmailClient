@@ -229,7 +229,13 @@ class IMAPService @Inject constructor() {
 
             val (body, htmlBody, isHtml) = extractBody(message)
 
-            val snippet = body.take(150).replace("\n", " ")
+            // Generate snippet - strip HTML tags if present
+            val snippetText = if (containsHtmlTags(body)) {
+                stripHtmlTags(body)
+            } else {
+                body
+            }
+            val snippet = snippetText.take(150).replace("\n", " ").trim()
 
             Email(
                 id = "0", // Will be set by Room on insert
@@ -340,6 +346,44 @@ class IMAPService @Inject constructor() {
             name.contains("archive") -> FolderType.ARCHIVE
             else -> FolderType.CUSTOM
         }
+    }
+
+    /**
+     * Detect if content contains HTML tags
+     */
+    private fun containsHtmlTags(content: String): Boolean {
+        val htmlTagPattern = Regex(
+            "<(div|p|br|span|a|img|table|tr|td|th|h[1-6]|ul|ol|li|strong|em|b|i|u|html|body|head)[\\s>]",
+            RegexOption.IGNORE_CASE
+        )
+        return htmlTagPattern.containsMatchIn(content)
+    }
+
+    /**
+     * Strip HTML tags from text to get clean preview
+     */
+    private fun stripHtmlTags(html: String): String {
+        return html
+            // Remove script and style tags with their content
+            .replace(Regex("<script[^>]*>[\\s\\S]*?</script>", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("<style[^>]*>[\\s\\S]*?</style>", RegexOption.IGNORE_CASE), "")
+            // Replace <br> tags with spaces
+            .replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), " ")
+            // Replace </p> and </div> tags with spaces for better readability
+            .replace(Regex("</(p|div)>", RegexOption.IGNORE_CASE), " ")
+            // Remove all other HTML tags
+            .replace(Regex("<[^>]+>"), "")
+            // Decode common HTML entities
+            .replace("&nbsp;", " ")
+            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", "\"")
+            .replace("&#39;", "'")
+            .replace("&apos;", "'")
+            // Clean up multiple spaces
+            .replace(Regex("\\s+"), " ")
+            .trim()
     }
 
     /**
