@@ -12,8 +12,10 @@ import com.emailclient.domain.model.Account
 import com.emailclient.domain.model.FolderType
 import com.emailclient.domain.repository.AccountRepository
 import com.emailclient.util.Result
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
@@ -72,12 +74,12 @@ class AccountRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun addAccount(account: Account, password: String): Result<Long> {
-        return try {
+    override suspend fun addAccount(account: Account, password: String): Result<Long> = withContext(Dispatchers.IO) {
+        return@withContext try {
             // Test connection before adding
             val connectionTest = testConnection(account, password)
             if (connectionTest !is Result.Success || !connectionTest.data) {
-                return Result.Error(Exception("Connection test failed"))
+                return@withContext Result.Error(Exception("Connection test failed"))
             }
 
             // Add account to database
@@ -160,8 +162,8 @@ class AccountRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun testConnection(account: Account, password: String): Result<Boolean> {
-        return try {
+    override suspend fun testConnection(account: Account, password: String): Result<Boolean> = withContext(Dispatchers.IO) {
+        return@withContext try {
             android.util.Log.d("AccountRepo", "Testing IMAP connection to ${account.imapConfig.host}:${account.imapConfig.port}")
 
             // Test IMAP connection
@@ -171,7 +173,7 @@ class AccountRepositoryImpl @Inject constructor(
 
             if (!imapConnected) {
                 android.util.Log.e("AccountRepo", "IMAP connection failed - store not connected")
-                return Result.Error(
+                return@withContext Result.Error(
                     Exception("IMAP connection failed - not connected"),
                     "IMAP connection failed - not connected"
                 )
@@ -185,7 +187,7 @@ class AccountRepositoryImpl @Inject constructor(
             } catch (e: Exception) {
                 // SMTP test failed with detailed error from SMTPService
                 android.util.Log.e("AccountRepo", "SMTP connection failed: ${e.message}", e)
-                return Result.Error(e, e.message ?: "SMTP connection failed")
+                return@withContext Result.Error(e, e.message ?: "SMTP connection failed")
             }
 
             android.util.Log.d("AccountRepo", "Both IMAP and SMTP connections successful")

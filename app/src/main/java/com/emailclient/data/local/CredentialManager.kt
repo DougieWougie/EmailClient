@@ -35,16 +35,20 @@ class CredentialManager @Inject constructor(
      * Store account password securely
      */
     fun savePassword(accountId: Long, password: String) {
+        android.util.Log.d("CredentialManager", "Saving password for account $accountId (${password.length} chars)")
         encryptedPrefs.edit()
             .putString(getPasswordKey(accountId), password)
             .apply()
+        android.util.Log.d("CredentialManager", "Password saved successfully for account $accountId")
     }
 
     /**
      * Retrieve account password
      */
     fun getPassword(accountId: Long): String? {
-        return encryptedPrefs.getString(getPasswordKey(accountId), null)
+        val password = encryptedPrefs.getString(getPasswordKey(accountId), null)
+        android.util.Log.d("CredentialManager", "Password retrieval for account $accountId: ${if (password != null) "Found (${password.length} chars)" else "NOT FOUND"}")
+        return password
     }
 
     /**

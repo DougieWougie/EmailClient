@@ -70,10 +70,15 @@ class SMTPService @Inject constructor() {
                 }
             }
 
-            // Connection settings
-            put("mail.smtp.connectiontimeout", "30000") // 30 seconds
-            put("mail.smtp.timeout", "30000")
-            put("mail.smtp.writetimeout", "30000")
+            // Connection settings - increased for slow/unreliable connections
+            put("mail.smtp.connectiontimeout", "90000") // 90 seconds
+            put("mail.smtp.timeout", "90000") // 90 seconds
+            put("mail.smtp.writetimeout", "90000") // 90 seconds
+
+            // Authentication settings - prefer LOGIN over AUTHENTICATE PLAIN
+            // Some mail servers have issues with AUTHENTICATE PLAIN
+            put("mail.smtp.auth.login.disable", "false") // Enable LOGIN
+            put("mail.smtp.auth.plain.disable", "true") // Disable PLAIN to force LOGIN
 
             // Android-specific settings
             put("mail.smtp.ssl.socketFactory.class", "javax.net.ssl.SSLSocketFactory")

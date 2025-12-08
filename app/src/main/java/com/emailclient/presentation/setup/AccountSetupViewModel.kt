@@ -92,6 +92,13 @@ class AccountSetupViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = AccountSetupState.Testing
 
+            android.util.Log.d("AccountSetup", "=== Testing Connection ===")
+            android.util.Log.d("AccountSetup", "Email: $email")
+            android.util.Log.d("AccountSetup", "Display Name: $displayName")
+            android.util.Log.d("AccountSetup", "Password Length: ${password.length} chars")
+            android.util.Log.d("AccountSetup", "IMAP: $imapHost:$imapPort ($imapSecurity)")
+            android.util.Log.d("AccountSetup", "SMTP: $smtpHost:$smtpPort ($smtpSecurity)")
+
             val account = Account(
                 email = email,
                 displayName = displayName,
@@ -112,6 +119,7 @@ class AccountSetupViewModel @Inject constructor(
 
             when (val result = accountRepository.testConnection(account, password)) {
                 is Result.Success -> {
+                    android.util.Log.d("AccountSetup", "✓ Connection test SUCCESSFUL!")
                     _uiState.value = AccountSetupState.TestSuccess(account, password)
                 }
                 is Result.Error -> {
@@ -120,7 +128,7 @@ class AccountSetupViewModel @Inject constructor(
                         ?: result.exception.message
                         ?: "Connection test failed - please check your settings"
 
-                    android.util.Log.e("AccountSetup", "Connection test failed: $errorMessage", result.exception)
+                    android.util.Log.e("AccountSetup", "✗ Connection test FAILED: $errorMessage", result.exception)
                     _uiState.value = AccountSetupState.Error(errorMessage)
                 }
                 else -> {

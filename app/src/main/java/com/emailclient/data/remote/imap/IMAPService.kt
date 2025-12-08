@@ -55,31 +55,55 @@ class IMAPService @Inject constructor() {
                     }
                 }
 
-                // Connection settings
-                put("mail.imap.connectiontimeout", "30000") // 30 seconds
-                put("mail.imap.timeout", "30000")
+                // Connection settings - increased for slow/unreliable connections
+                put("mail.imap.connectiontimeout", "90000") // 90 seconds
+                put("mail.imap.timeout", "90000") // 90 seconds
+                put("mail.imap.writetimeout", "90000") // 90 seconds
+
+                // Authentication settings - prefer LOGIN over AUTHENTICATE PLAIN
+                // Some Dovecot servers have issues with AUTHENTICATE PLAIN
+                put("mail.imap.auth.login.disable", "false") // Enable LOGIN
+                put("mail.imap.auth.plain.disable", "true") // Disable PLAIN to force LOGIN
 
                 // Android-specific settings
                 put("mail.imap.ssl.socketFactory.class", "javax.net.ssl.SSLSocketFactory")
                 put("mail.imap.ssl.socketFactory.fallback", "false")
             }
 
-            android.util.Log.d("IMAPService", "Connecting to IMAP: ${account.imapConfig.host}:${account.imapConfig.port} with ${account.imapConfig.securityType}")
+            android.util.Log.d("IMAPService", "=== IMAP Connection Attempt ===")
+            android.util.Log.d("IMAPService", "Host: ${account.imapConfig.host}")
+            android.util.Log.d("IMAPService", "Port: ${account.imapConfig.port}")
+            android.util.Log.d("IMAPService", "Username: ${account.imapConfig.username}")
+            android.util.Log.d("IMAPService", "Security: ${account.imapConfig.securityType}")
+            android.util.Log.d("IMAPService", "Auth Type: ${account.imapConfig.authenticationType}")
+            android.util.Log.d("IMAPService", "Password Length: ${password.length} chars")
 
             val session = Session.getInstance(props)
+            session.debug = true // Enable JavaMail debug output
             val store = session.getStore("imap")
 
+            android.util.Log.d("IMAPService", "Attempting to connect to store...")
             store.connect(
                 account.imapConfig.host,
                 account.imapConfig.username,
                 password
             )
 
+            android.util.Log.d("IMAPService", "✓ IMAP Connection successful!")
+            android.util.Log.d("IMAPService", "Store connected: ${store.isConnected}")
             store
         } catch (e: AuthenticationFailedException) {
+            android.util.Log.e("IMAPService", "✗ IMAP Authentication FAILED")
+            android.util.Log.e("IMAPService", "Exception type: ${e.javaClass.simpleName}")
+            android.util.Log.e("IMAPService", "Exception message: ${e.message}")
+            android.util.Log.e("IMAPService", "Next exception: ${e.nextException?.message}")
             e.printStackTrace()
             throw Exception("IMAP Authentication failed. Please check your email and password.", e)
         } catch (e: MessagingException) {
+            android.util.Log.e("IMAPService", "✗ IMAP MessagingException")
+            android.util.Log.e("IMAPService", "Exception type: ${e.javaClass.simpleName}")
+            android.util.Log.e("IMAPService", "Exception message: ${e.message}")
+            android.util.Log.e("IMAPService", "Next exception: ${e.nextException?.message}")
             e.printStackTrace()
             val message = when {
                 e.message?.contains("Unknown host") == true ->
@@ -92,6 +116,9 @@ class IMAPService @Inject constructor() {
             }
             throw Exception(message, e)
         } catch (e: Exception) {
+            android.util.Log.e("IMAPService", "✗ IMAP General Exception")
+            android.util.Log.e("IMAPService", "Exception type: ${e.javaClass.simpleName}")
+            android.util.Log.e("IMAPService", "Exception message: ${e.message}")
             e.printStackTrace()
             throw Exception("IMAP connection failed: ${e.message ?: e.javaClass.simpleName}", e)
         }
