@@ -46,15 +46,17 @@
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
 
-        <!-- Email Sync Worker -->
+        <!-- Disable default WorkManager initialization - using custom config in EmailApplication -->
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"
             android:exported="false"
             tools:node="merge">
+            <!-- Disable automatic WorkManager initialization -->
             <meta-data
                 android:name="androidx.work.WorkManagerInitializer"
-                android:value="androidx.startup" />
+                android:value="androidx.startup"
+                tools:node="remove" />
         </provider>
 
     </application>
