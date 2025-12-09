@@ -59,6 +59,15 @@
         <action
             android:id="@+id/action_settings_to_inbox"
             app:destination="@id/inboxFragment" />
+        <action
+            android:id="@+id/action_settings_to_folders"
+            app:destination="@id/folderManagementFragment" />
     </fragment>
+
+    <fragment
+        android:id="@+id/folderManagementFragment"
+        android:name="com.emailclient.presentation.folders.FolderManagementFragment"
+        android:label="Manage Folders"
+        tools:layout="@layout/fragment_folder_management" />
 
 </navigation>

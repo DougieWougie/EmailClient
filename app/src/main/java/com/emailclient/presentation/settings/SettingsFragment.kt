@@ -109,6 +109,12 @@ class SettingsFragment : Fragment() {
             startActivity(intent)
         }
 
+        binding.buttonManageFolders.setOnClickListener {
+            // Navigate to folder management
+            androidx.navigation.fragment.NavHostFragment.findNavController(this)
+                .navigate(com.emailclient.R.id.action_settings_to_folders)
+        }
+
         binding.buttonSyncNow.setOnClickListener {
             viewModel.syncNow()
         }

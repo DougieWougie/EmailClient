@@ -140,6 +140,11 @@ class EmailDetailFragment : Fragment() {
             findNavController().navigate(action)
         }
 
+        binding.btnMove.setOnClickListener {
+            val email = viewModel.email.value ?: return@setOnClickListener
+            showMoveToFolderDialog(email.id)
+        }
+
         binding.btnArchive.setOnClickListener {
             val email = viewModel.email.value ?: return@setOnClickListener
             viewModel.archiveEmail(email.id)
@@ -157,6 +162,43 @@ class EmailDetailFragment : Fragment() {
                 .setNegativeButton("Cancel", null)
                 .show()
         }
+    }
+
+    private fun showMoveToFolderDialog(emailId: String) {
+        val dialogView = layoutInflater.inflate(com.emailclient.R.layout.dialog_move_to_folder, null)
+        val recyclerView = dialogView.findViewById<androidx.recyclerview.widget.RecyclerView>(com.emailclient.R.id.recyclerViewFolders)
+        val progressBar = dialogView.findViewById<com.google.android.material.progressindicator.CircularProgressIndicator>(com.emailclient.R.id.progressBar)
+
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            .setView(dialogView)
+            .create()
+
+        // Create simple folder adapter for selection
+        val folderAdapter = SimpleFolderAdapter { folder ->
+            viewModel.moveEmail(emailId, folder.id)
+            dialog.dismiss()
+        }
+
+        recyclerView.apply {
+            layoutManager = androidx.recyclerview.widget.LinearLayoutManager(requireContext())
+            adapter = folderAdapter
+        }
+
+        // Load folders
+        progressBar.visibility = android.view.View.VISIBLE
+        viewModel.loadFolders()
+
+        // Observe folders
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.folders.collect { folders ->
+                if (folders.isNotEmpty()) {
+                    progressBar.visibility = android.view.View.GONE
+                    folderAdapter.submitList(folders)
+                }
+            }
+        }
+
+        dialog.show()
     }
 
     private fun observeViewModel() {
@@ -179,10 +221,37 @@ class EmailDetailFragment : Fragment() {
                 launch {
                     viewModel.actionResult.collect { result ->
                         result?.let {
-                            Snackbar.make(binding.root, it, Snackbar.LENGTH_SHORT).show()
-                            viewModel.clearActionResult()
-                            // Navigate back after successful delete/archive
-                            findNavController().navigateUp()
+                            when {
+                                it.contains("deleted", ignoreCase = true) ||
+                                it.contains("archived", ignoreCase = true) -> {
+                                    // Show undo snackbar for delete/archive
+                                    Snackbar.make(binding.root, it, Snackbar.LENGTH_LONG)
+                                        .setAction("UNDO") {
+                                            viewModel.undoLastAction()
+                                        }
+                                        .addCallback(object : Snackbar.Callback() {
+                                            override fun onDismissed(transientBottomBar: Snackbar?, event: Int) {
+                                                if (event != DISMISS_EVENT_ACTION) {
+                                                    // Undo was not clicked, finalize the action
+                                                    viewModel.finalizeAction()
+                                                    findNavController().navigateUp()
+                                                }
+                                            }
+                                        })
+                                        .show()
+                                    viewModel.clearActionResult()
+                                }
+                                it.contains("moved", ignoreCase = true) -> {
+                                    // Simple snackbar for move
+                                    Snackbar.make(binding.root, it, Snackbar.LENGTH_SHORT).show()
+                                    viewModel.clearActionResult()
+                                    findNavController().navigateUp()
+                                }
+                                else -> {
+                                    Snackbar.make(binding.root, it, Snackbar.LENGTH_SHORT).show()
+                                    viewModel.clearActionResult()
+                                }
+                            }
                         }
                     }
                 }

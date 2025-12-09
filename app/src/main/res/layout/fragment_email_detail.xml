@@ -132,13 +132,22 @@
             app:singleSelection="false">
 
             <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnMove"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Move"
+                app:icon="@drawable/ic_folder" />
+
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnArchive"
                 style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/action_archive"
-                app:icon="@android:drawable/ic_menu_save" />
+                app:icon="@drawable/ic_archive" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnDelete"
@@ -147,7 +156,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/action_delete"
-                app:icon="@android:drawable/ic_menu_delete" />
+                app:icon="@drawable/ic_delete" />
 
         </com.google.android.material.button.MaterialButtonToggleGroup>
 
