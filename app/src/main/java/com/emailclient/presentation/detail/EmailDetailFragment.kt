@@ -139,6 +139,24 @@ class EmailDetailFragment : Fragment() {
             )
             findNavController().navigate(action)
         }
+
+        binding.btnArchive.setOnClickListener {
+            val email = viewModel.email.value ?: return@setOnClickListener
+            viewModel.archiveEmail(email.id)
+        }
+
+        binding.btnDelete.setOnClickListener {
+            val email = viewModel.email.value ?: return@setOnClickListener
+            // Show confirmation dialog
+            androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle("Delete Email")
+                .setMessage("Are you sure you want to delete this email?")
+                .setPositiveButton("Delete") { _, _ ->
+                    viewModel.deleteEmail(email.id)
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
     }
 
     private fun observeViewModel() {
@@ -154,6 +172,17 @@ class EmailDetailFragment : Fragment() {
                     viewModel.error.collect { error ->
                         error?.let {
                             Snackbar.make(binding.root, it, Snackbar.LENGTH_LONG).show()
+                        }
+                    }
+                }
+
+                launch {
+                    viewModel.actionResult.collect { result ->
+                        result?.let {
+                            Snackbar.make(binding.root, it, Snackbar.LENGTH_SHORT).show()
+                            viewModel.clearActionResult()
+                            // Navigate back after successful delete/archive
+                            findNavController().navigateUp()
                         }
                     }
                 }

@@ -42,11 +42,39 @@ class ComposeFragment : Fragment() {
 
         setupButtons()
         observeViewModel()
+
+        // Handle reply/forward if provided
+        if (args.replyToEmailId != null) {
+            viewModel.prepareReplyOrForward(
+                emailId = args.replyToEmailId!!,
+                isReplyAll = args.isReplyAll,
+                isForward = args.isForward
+            )
+        }
     }
 
     private fun setupButtons() {
         binding.btnSend.setOnClickListener {
             sendEmail()
+        }
+
+        binding.btnShowCcBcc.setOnClickListener {
+            toggleCcBccVisibility()
+        }
+    }
+
+    private fun toggleCcBccVisibility() {
+        val ccVisible = binding.layoutCc.visibility == View.VISIBLE
+        val bccVisible = binding.layoutBcc.visibility == View.VISIBLE
+
+        if (!ccVisible && !bccVisible) {
+            // Show both CC and BCC
+            binding.layoutCc.visibility = View.VISIBLE
+            binding.layoutBcc.visibility = View.VISIBLE
+        } else {
+            // Hide both
+            binding.layoutCc.visibility = View.GONE
+            binding.layoutBcc.visibility = View.GONE
         }
     }
 
@@ -77,10 +105,18 @@ class ComposeFragment : Fragment() {
             ""
         }
 
+        // Get BCC if visible
+        val bcc = if (binding.layoutBcc.visibility == View.VISIBLE) {
+            binding.editBcc.text.toString().trim()
+        } else {
+            ""
+        }
+
         // Send email
         viewModel.sendEmail(
             to = to,
             cc = cc,
+            bcc = bcc,
             subject = subject,
             body = body,
             isHtml = false
@@ -90,37 +126,57 @@ class ComposeFragment : Fragment() {
     private fun observeViewModel() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.uiState.collect { state ->
-                    when (state) {
-                        is ComposeState.Idle -> {
-                            binding.btnSend.isEnabled = true
+                launch {
+                    viewModel.uiState.collect { state ->
+                        when (state) {
+                            is ComposeState.Idle -> {
+                                binding.btnSend.isEnabled = true
+                            }
+
+                            is ComposeState.Sending -> {
+                                binding.btnSend.isEnabled = false
+                            }
+
+                            is ComposeState.Success -> {
+                                Snackbar.make(
+                                    binding.root,
+                                    "Email sent successfully!",
+                                    Snackbar.LENGTH_SHORT
+                                ).show()
+
+                                // Navigate back
+                                findNavController().navigateUp()
+                            }
+
+                            is ComposeState.Error -> {
+                                binding.btnSend.isEnabled = true
+
+                                Snackbar.make(
+                                    binding.root,
+                                    state.message,
+                                    Snackbar.LENGTH_LONG
+                                ).show()
+
+                                viewModel.resetState()
+                            }
                         }
+                    }
+                }
 
-                        is ComposeState.Sending -> {
-                            binding.btnSend.isEnabled = false
-                        }
+                // Observe compose data for pre-filling fields
+                launch {
+                    viewModel.composeData.collect { data ->
+                        data?.let {
+                            binding.editTo.setText(it.to)
+                            binding.editSubject.setText(it.subject)
+                            binding.editBody.setText(it.body)
 
-                        is ComposeState.Success -> {
-                            Snackbar.make(
-                                binding.root,
-                                "Email sent successfully!",
-                                Snackbar.LENGTH_SHORT
-                            ).show()
-
-                            // Navigate back
-                            findNavController().navigateUp()
-                        }
-
-                        is ComposeState.Error -> {
-                            binding.btnSend.isEnabled = true
-
-                            Snackbar.make(
-                                binding.root,
-                                state.message,
-                                Snackbar.LENGTH_LONG
-                            ).show()
-
-                            viewModel.resetState()
+                            // Show and populate CC if present
+                            if (it.cc.isNotEmpty()) {
+                                binding.layoutCc.visibility = View.VISIBLE
+                                binding.layoutBcc.visibility = View.VISIBLE
+                                binding.editCc.setText(it.cc)
+                            }
                         }
                     }
                 }

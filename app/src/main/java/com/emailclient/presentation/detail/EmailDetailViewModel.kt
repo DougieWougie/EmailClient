@@ -29,6 +29,9 @@ class EmailDetailViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    private val _actionResult = MutableStateFlow<String?>(null)
+    val actionResult: StateFlow<String?> = _actionResult.asStateFlow()
+
     /**
      * Load email by ID
      */
@@ -63,13 +66,44 @@ class EmailDetailViewModel @Inject constructor(
     }
 
     /**
-     * Delete the current email
+     * Delete email by ID
      */
-    fun deleteEmail() {
+    fun deleteEmail(emailId: String) {
         viewModelScope.launch {
-            _email.value?.let { email ->
-                emailRepository.deleteEmail(email.id)
+            when (val result = emailRepository.deleteEmail(emailId)) {
+                is Result.Success -> {
+                    _actionResult.value = "Email deleted"
+                }
+                is Result.Error -> {
+                    _error.value = result.message ?: "Failed to delete email"
+                }
+                else -> {
+                    _error.value = "Unknown error occurred"
+                }
             }
         }
+    }
+
+    /**
+     * Archive email by ID
+     */
+    fun archiveEmail(emailId: String) {
+        viewModelScope.launch {
+            when (val result = emailRepository.archiveEmail(emailId)) {
+                is Result.Success -> {
+                    _actionResult.value = "Email archived"
+                }
+                is Result.Error -> {
+                    _error.value = result.message ?: "Failed to archive email"
+                }
+                else -> {
+                    _error.value = "Unknown error occurred"
+                }
+            }
+        }
+    }
+
+    fun clearActionResult() {
+        _actionResult.value = null
     }
 }

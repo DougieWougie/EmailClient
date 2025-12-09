@@ -31,14 +31,48 @@ class SMTPService @Inject constructor() {
         isHtml: Boolean = false
     ): Boolean = withContext(Dispatchers.IO) {
         try {
+            android.util.Log.d("SMTPService", "=== SMTP Send Email ===")
+            android.util.Log.d("SMTPService", "Host: ${account.smtpConfig.host}")
+            android.util.Log.d("SMTPService", "Port: ${account.smtpConfig.port}")
+            android.util.Log.d("SMTPService", "To: ${to.joinToString(", ")}")
+            android.util.Log.d("SMTPService", "Subject: $subject")
+
             val session = createSession(account, password)
             val message = createMessage(session, account, to, cc, bcc, subject, body, isHtml)
 
+            android.util.Log.d("SMTPService", "Sending message...")
             Transport.send(message)
+
+            android.util.Log.d("SMTPService", "✓ Email sent successfully!")
             true
+        } catch (e: AuthenticationFailedException) {
+            android.util.Log.e("SMTPService", "✗ SMTP Authentication FAILED", e)
+            throw Exception("SMTP Authentication failed. Please check your email and password.", e)
+        } catch (e: SendFailedException) {
+            android.util.Log.e("SMTPService", "✗ SMTP Send FAILED", e)
+            val message = when {
+                e.message?.contains("Invalid Addresses") == true ->
+                    "One or more recipient addresses are invalid. Please check the email addresses."
+                e.message?.contains("550") == true ->
+                    "The recipient's mail server rejected the email. Please check the recipient address."
+                else -> "Failed to send email: ${e.message ?: "Unknown error"}"
+            }
+            throw Exception(message, e)
+        } catch (e: MessagingException) {
+            android.util.Log.e("SMTPService", "✗ SMTP MessagingException", e)
+            val message = when {
+                e.message?.contains("Unknown host") == true ->
+                    "Cannot find SMTP server '${account.smtpConfig.host}'. Please check the server address."
+                e.message?.contains("Connection refused") == true || e.message?.contains("failed") == true ->
+                    "Cannot connect to SMTP server '${account.smtpConfig.host}:${account.smtpConfig.port}'. Please check the server and port."
+                e.message?.contains("timeout") == true ->
+                    "Connection to SMTP server timed out. Please check your internet connection."
+                else -> "SMTP error: ${e.message ?: "Unknown error"}"
+            }
+            throw Exception(message, e)
         } catch (e: Exception) {
-            e.printStackTrace()
-            false
+            android.util.Log.e("SMTPService", "✗ SMTP General Exception", e)
+            throw Exception("Failed to send email: ${e.message ?: e.javaClass.simpleName}", e)
         }
     }
 

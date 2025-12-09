@@ -13,6 +13,7 @@
     <string name="action_compose">Compose</string>
     <string name="action_send">Send</string>
     <string name="action_delete">Delete</string>
+    <string name="action_archive">Archive</string>
     <string name="action_reply">Reply</string>
     <string name="action_reply_all">Reply All</string>
     <string name="action_forward">Forward</string>
@@ -23,6 +24,7 @@
     <string name="email_from">From:</string>
     <string name="email_to">To:</string>
     <string name="email_cc">Cc:</string>
+    <string name="email_bcc">Bcc:</string>
     <string name="email_subject">Subject:</string>
     <string name="email_date">Date:</string>
 

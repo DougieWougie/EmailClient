@@ -95,8 +95,10 @@ class EmailRepositoryImpl @Inject constructor(
                     limit = 50
                 )
 
-                // Store emails in local database
-                emailDao.insertEmails(emails.map { it.toEntity() })
+                // Upsert emails in local database - this will:
+                // - Insert new emails
+                // - Update flags (isRead, isFlagged) for existing emails from server state
+                emailDao.upsertEmails(emails.map { it.toEntity() })
 
                 // Update folder counts
                 val unreadCount = emails.count { !it.isRead }
@@ -135,7 +137,7 @@ class EmailRepositoryImpl @Inject constructor(
             val account = accountEntity.toDomain()
 
             // Send email via SMTP
-            val success = smtpService.sendEmail(
+            smtpService.sendEmail(
                 account = account,
                 password = password,
                 to = to,
@@ -146,20 +148,57 @@ class EmailRepositoryImpl @Inject constructor(
                 isHtml = isHtml
             )
 
-            if (success) {
-                Result.Success(Unit)
-            } else {
-                Result.Error(Exception("Failed to send email"))
-            }
+            Result.Success(Unit)
         } catch (e: Exception) {
-            Result.Error(e, "Failed to send email: ${e.message}")
+            Result.Error(e, e.message ?: "Failed to send email")
         }
     }
 
     override suspend fun markAsRead(emailId: String, isRead: Boolean): Result<Unit> {
         return try {
+            // Get email details
+            val emailEntity = emailDao.getEmailById(emailId.toLong())
+                ?: return Result.Error(Exception("Email not found"))
+
+            val email = emailEntity.toDomain()
+
+            // Update local database first
             emailDao.markAsRead(emailId.toLong(), isRead)
-            // TODO: Also mark as read on the server using IMAP
+
+            // Update on server
+            try {
+                val accountEntity = accountDao.getAccountById(email.accountId)
+                    ?: return Result.Error(Exception("Account not found"))
+
+                val password = credentialManager.getPassword(email.accountId)
+                    ?: return Result.Error(Exception("Password not found"))
+
+                val folderEntity = folderDao.getFolderById(email.folderId)
+                    ?: return Result.Error(Exception("Folder not found"))
+
+                val account = accountEntity.toDomain()
+
+                // Connect and update flag on server
+                val store = imapService.connect(account, password)
+                try {
+                    val success = imapService.setReadFlag(
+                        store = store,
+                        folderName = folderEntity.name,
+                        messageId = email.messageId,
+                        isRead = isRead
+                    )
+
+                    if (!success) {
+                        android.util.Log.w("EmailRepo", "Failed to update read flag on server, but local change succeeded")
+                    }
+                } finally {
+                    imapService.disconnect(store)
+                }
+            } catch (e: Exception) {
+                // Log but don't fail - local change already succeeded
+                android.util.Log.e("EmailRepo", "Failed to sync read flag to server", e)
+            }
+
             Result.Success(Unit)
         } catch (e: Exception) {
             Result.Error(e, "Failed to mark email as read")
@@ -168,8 +207,49 @@ class EmailRepositoryImpl @Inject constructor(
 
     override suspend fun markAsFlagged(emailId: String, isFlagged: Boolean): Result<Unit> {
         return try {
+            // Get email details
+            val emailEntity = emailDao.getEmailById(emailId.toLong())
+                ?: return Result.Error(Exception("Email not found"))
+
+            val email = emailEntity.toDomain()
+
+            // Update local database first
             emailDao.markAsFlagged(emailId.toLong(), isFlagged)
-            // TODO: Also mark as flagged on the server using IMAP
+
+            // Update on server
+            try {
+                val accountEntity = accountDao.getAccountById(email.accountId)
+                    ?: return Result.Error(Exception("Account not found"))
+
+                val password = credentialManager.getPassword(email.accountId)
+                    ?: return Result.Error(Exception("Password not found"))
+
+                val folderEntity = folderDao.getFolderById(email.folderId)
+                    ?: return Result.Error(Exception("Folder not found"))
+
+                val account = accountEntity.toDomain()
+
+                // Connect and update flag on server
+                val store = imapService.connect(account, password)
+                try {
+                    val success = imapService.setFlaggedFlag(
+                        store = store,
+                        folderName = folderEntity.name,
+                        messageId = email.messageId,
+                        isFlagged = isFlagged
+                    )
+
+                    if (!success) {
+                        android.util.Log.w("EmailRepo", "Failed to update flagged flag on server, but local change succeeded")
+                    }
+                } finally {
+                    imapService.disconnect(store)
+                }
+            } catch (e: Exception) {
+                // Log but don't fail - local change already succeeded
+                android.util.Log.e("EmailRepo", "Failed to sync flagged flag to server", e)
+            }
+
             Result.Success(Unit)
         } catch (e: Exception) {
             Result.Error(e, "Failed to mark email as flagged")
@@ -178,8 +258,53 @@ class EmailRepositoryImpl @Inject constructor(
 
     override suspend fun moveToFolder(emailId: String, newFolderId: Long): Result<Unit> {
         return try {
+            // Get email details
+            val emailEntity = emailDao.getEmailById(emailId.toLong())
+                ?: return Result.Error(Exception("Email not found"))
+
+            val email = emailEntity.toDomain()
+
+            // Get source and target folder names
+            val sourceFolderEntity = folderDao.getFolderById(email.folderId)
+                ?: return Result.Error(Exception("Source folder not found"))
+
+            val targetFolderEntity = folderDao.getFolderById(newFolderId)
+                ?: return Result.Error(Exception("Target folder not found"))
+
+            // Update local database first
             emailDao.moveToFolder(emailId.toLong(), newFolderId)
-            // TODO: Also move on the server using IMAP
+
+            // Update on server
+            try {
+                val accountEntity = accountDao.getAccountById(email.accountId)
+                    ?: return Result.Error(Exception("Account not found"))
+
+                val password = credentialManager.getPassword(email.accountId)
+                    ?: return Result.Error(Exception("Password not found"))
+
+                val account = accountEntity.toDomain()
+
+                // Connect and move message on server
+                val store = imapService.connect(account, password)
+                try {
+                    val success = imapService.moveMessage(
+                        store = store,
+                        sourceFolderName = sourceFolderEntity.name,
+                        targetFolderName = targetFolderEntity.name,
+                        messageId = email.messageId
+                    )
+
+                    if (!success) {
+                        android.util.Log.w("EmailRepo", "Failed to move message on server, but local change succeeded")
+                    }
+                } finally {
+                    imapService.disconnect(store)
+                }
+            } catch (e: Exception) {
+                // Log but don't fail - local change already succeeded
+                android.util.Log.e("EmailRepo", "Failed to move message on server", e)
+            }
+
             Result.Success(Unit)
         } catch (e: Exception) {
             Result.Error(e, "Failed to move email")
@@ -188,11 +313,115 @@ class EmailRepositoryImpl @Inject constructor(
 
     override suspend fun deleteEmail(emailId: String): Result<Unit> {
         return try {
+            // Get email details before deleting
+            val emailEntity = emailDao.getEmailById(emailId.toLong())
+                ?: return Result.Error(Exception("Email not found"))
+
+            val email = emailEntity.toDomain()
+
+            // Delete from local database first
             emailDao.deleteEmailById(emailId.toLong())
-            // TODO: Also delete on the server using IMAP
+
+            // Delete on server
+            try {
+                val accountEntity = accountDao.getAccountById(email.accountId)
+                    ?: return Result.Error(Exception("Account not found"))
+
+                val password = credentialManager.getPassword(email.accountId)
+                    ?: return Result.Error(Exception("Password not found"))
+
+                val folderEntity = folderDao.getFolderById(email.folderId)
+                    ?: return Result.Error(Exception("Folder not found"))
+
+                val account = accountEntity.toDomain()
+
+                // Connect and delete message on server
+                val store = imapService.connect(account, password)
+                try {
+                    val success = imapService.deleteMessage(
+                        store = store,
+                        folderName = folderEntity.name,
+                        messageId = email.messageId
+                    )
+
+                    if (!success) {
+                        android.util.Log.w("EmailRepo", "Failed to delete message on server, but local deletion succeeded")
+                    }
+                } finally {
+                    imapService.disconnect(store)
+                }
+            } catch (e: Exception) {
+                // Log but don't fail - local deletion already succeeded
+                android.util.Log.e("EmailRepo", "Failed to delete message on server", e)
+            }
+
             Result.Success(Unit)
         } catch (e: Exception) {
             Result.Error(e, "Failed to delete email")
+        }
+    }
+
+    override suspend fun archiveEmail(emailId: String): Result<Unit> {
+        return try {
+            // Get email details
+            val emailEntity = emailDao.getEmailById(emailId.toLong())
+                ?: return Result.Error(Exception("Email not found"))
+
+            val email = emailEntity.toDomain()
+
+            // Get archive folder for this account
+            var archiveFolderId: Long? = null
+
+            // First try to get folder by ARCHIVE type
+            val archiveFolder = folderDao.getFolderByType(email.accountId, com.emailclient.domain.model.FolderType.ARCHIVE)
+
+            if (archiveFolder != null) {
+                archiveFolderId = archiveFolder.id
+            } else {
+                // If not found, look for a folder with "archive" in the name
+                val accountEntity = accountDao.getAccountById(email.accountId)
+                if (accountEntity != null) {
+                    val password = credentialManager.getPassword(email.accountId)
+                    if (password != null) {
+                        val account = accountEntity.toDomain()
+                        val store = imapService.connect(account, password)
+                        try {
+                            val folders = imapService.fetchFolders(store, email.accountId)
+                            val archiveFolderFromServer = folders.firstOrNull {
+                                it.name.contains("archive", ignoreCase = true) ||
+                                it.type == com.emailclient.domain.model.FolderType.ARCHIVE
+                            }
+
+                            if (archiveFolderFromServer != null) {
+                                // Insert folder if not exists
+                                val existing = folderDao.getFolderByName(email.accountId, archiveFolderFromServer.name)
+                                archiveFolderId = existing?.id ?: folderDao.insertFolder(
+                                    com.emailclient.data.local.entities.FolderEntity(
+                                        accountId = email.accountId,
+                                        name = archiveFolderFromServer.name,
+                                        displayName = archiveFolderFromServer.displayName,
+                                        type = com.emailclient.domain.model.FolderType.ARCHIVE,
+                                        unreadCount = 0,
+                                        totalCount = 0,
+                                        syncEnabled = true
+                                    )
+                                )
+                            }
+                        } finally {
+                            imapService.disconnect(store)
+                        }
+                    }
+                }
+            }
+
+            if (archiveFolderId == null) {
+                return Result.Error(Exception("Archive folder not found. Please sync folders or create an Archive folder."))
+            }
+
+            // Move email to archive folder
+            moveToFolder(emailId, archiveFolderId)
+        } catch (e: Exception) {
+            Result.Error(e, "Failed to archive email: ${e.message}")
         }
     }
 }

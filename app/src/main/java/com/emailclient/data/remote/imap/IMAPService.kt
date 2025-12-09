@@ -394,4 +394,272 @@ class IMAPService @Inject constructor() {
             store.close()
         }
     }
+
+    /**
+     * Create a new folder on the IMAP server
+     */
+    suspend fun createFolder(
+        store: Store,
+        folderName: String
+    ): Boolean = withContext(Dispatchers.IO) {
+        return@withContext try {
+            android.util.Log.d("IMAPService", "Creating folder: $folderName")
+
+            val folder = store.getFolder(folderName)
+
+            if (folder.exists()) {
+                android.util.Log.w("IMAPService", "Folder already exists: $folderName")
+                return@withContext false
+            }
+
+            val success = folder.create(JavaMailFolder.HOLDS_MESSAGES)
+
+            if (success) {
+                android.util.Log.d("IMAPService", "✓ Folder created successfully: $folderName")
+            } else {
+                android.util.Log.e("IMAPService", "✗ Failed to create folder: $folderName")
+            }
+
+            success
+        } catch (e: Exception) {
+            android.util.Log.e("IMAPService", "Error creating folder: $folderName", e)
+            false
+        }
+    }
+
+    /**
+     * Rename a folder on the IMAP server
+     */
+    suspend fun renameFolder(
+        store: Store,
+        oldName: String,
+        newName: String
+    ): Boolean = withContext(Dispatchers.IO) {
+        return@withContext try {
+            android.util.Log.d("IMAPService", "Renaming folder: $oldName -> $newName")
+
+            val oldFolder = store.getFolder(oldName)
+
+            if (!oldFolder.exists()) {
+                android.util.Log.e("IMAPService", "Source folder does not exist: $oldName")
+                return@withContext false
+            }
+
+            val newFolder = store.getFolder(newName)
+
+            if (newFolder.exists()) {
+                android.util.Log.e("IMAPService", "Target folder already exists: $newName")
+                return@withContext false
+            }
+
+            val success = oldFolder.renameTo(newFolder)
+
+            if (success) {
+                android.util.Log.d("IMAPService", "✓ Folder renamed successfully")
+            } else {
+                android.util.Log.e("IMAPService", "✗ Failed to rename folder")
+            }
+
+            success
+        } catch (e: Exception) {
+            android.util.Log.e("IMAPService", "Error renaming folder", e)
+            false
+        }
+    }
+
+    /**
+     * Delete a folder from the IMAP server
+     */
+    suspend fun deleteFolderOnServer(
+        store: Store,
+        folderName: String
+    ): Boolean = withContext(Dispatchers.IO) {
+        return@withContext try {
+            android.util.Log.d("IMAPService", "Deleting folder: $folderName")
+
+            val folder = store.getFolder(folderName)
+
+            if (!folder.exists()) {
+                android.util.Log.w("IMAPService", "Folder does not exist: $folderName")
+                return@withContext false
+            }
+
+            // Close folder if it's open
+            if (folder.isOpen) {
+                folder.close(false)
+            }
+
+            val success = folder.delete(false)
+
+            if (success) {
+                android.util.Log.d("IMAPService", "✓ Folder deleted successfully")
+            } else {
+                android.util.Log.e("IMAPService", "✗ Failed to delete folder (may not be empty)")
+            }
+
+            success
+        } catch (e: Exception) {
+            android.util.Log.e("IMAPService", "Error deleting folder", e)
+            false
+        }
+    }
+
+    /**
+     * Mark email as read/unread on server
+     */
+    suspend fun setReadFlag(
+        store: Store,
+        folderName: String,
+        messageId: String,
+        isRead: Boolean
+    ): Boolean = withContext(Dispatchers.IO) {
+        return@withContext try {
+            val folder = store.getFolder(folderName)
+            folder.open(JavaMailFolder.READ_WRITE)
+
+            try {
+                val message = findMessageByMessageId(folder, messageId)
+                if (message != null) {
+                    message.setFlag(Flags.Flag.SEEN, isRead)
+                    android.util.Log.d("IMAPService", "Marked message $messageId as ${if (isRead) "read" else "unread"}")
+                    true
+                } else {
+                    android.util.Log.e("IMAPService", "Message not found: $messageId")
+                    false
+                }
+            } finally {
+                folder.close(false)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("IMAPService", "Failed to set read flag", e)
+            false
+        }
+    }
+
+    /**
+     * Mark email as flagged/unflagged on server
+     */
+    suspend fun setFlaggedFlag(
+        store: Store,
+        folderName: String,
+        messageId: String,
+        isFlagged: Boolean
+    ): Boolean = withContext(Dispatchers.IO) {
+        return@withContext try {
+            val folder = store.getFolder(folderName)
+            folder.open(JavaMailFolder.READ_WRITE)
+
+            try {
+                val message = findMessageByMessageId(folder, messageId)
+                if (message != null) {
+                    message.setFlag(Flags.Flag.FLAGGED, isFlagged)
+                    android.util.Log.d("IMAPService", "Marked message $messageId as ${if (isFlagged) "flagged" else "unflagged"}")
+                    true
+                } else {
+                    android.util.Log.e("IMAPService", "Message not found: $messageId")
+                    false
+                }
+            } finally {
+                folder.close(false)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("IMAPService", "Failed to set flagged flag", e)
+            false
+        }
+    }
+
+    /**
+     * Move email to another folder on server
+     */
+    suspend fun moveMessage(
+        store: Store,
+        sourceFolderName: String,
+        targetFolderName: String,
+        messageId: String
+    ): Boolean = withContext(Dispatchers.IO) {
+        return@withContext try {
+            val sourceFolder = store.getFolder(sourceFolderName)
+            sourceFolder.open(JavaMailFolder.READ_WRITE)
+
+            try {
+                val message = findMessageByMessageId(sourceFolder, messageId)
+                if (message != null) {
+                    val targetFolder = store.getFolder(targetFolderName)
+
+                    // Copy message to target folder
+                    sourceFolder.copyMessages(arrayOf(message), targetFolder)
+
+                    // Mark original as deleted
+                    message.setFlag(Flags.Flag.DELETED, true)
+
+                    // Expunge to actually delete
+                    sourceFolder.expunge()
+
+                    android.util.Log.d("IMAPService", "Moved message $messageId from $sourceFolderName to $targetFolderName")
+                    true
+                } else {
+                    android.util.Log.e("IMAPService", "Message not found: $messageId")
+                    false
+                }
+            } finally {
+                sourceFolder.close(true)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("IMAPService", "Failed to move message", e)
+            false
+        }
+    }
+
+    /**
+     * Delete email on server (mark as deleted and expunge)
+     */
+    suspend fun deleteMessage(
+        store: Store,
+        folderName: String,
+        messageId: String
+    ): Boolean = withContext(Dispatchers.IO) {
+        return@withContext try {
+            val folder = store.getFolder(folderName)
+            folder.open(JavaMailFolder.READ_WRITE)
+
+            try {
+                val message = findMessageByMessageId(folder, messageId)
+                if (message != null) {
+                    // Mark as deleted
+                    message.setFlag(Flags.Flag.DELETED, true)
+
+                    // Expunge to actually delete
+                    folder.expunge()
+
+                    android.util.Log.d("IMAPService", "Deleted message $messageId from $folderName")
+                    true
+                } else {
+                    android.util.Log.e("IMAPService", "Message not found: $messageId")
+                    false
+                }
+            } finally {
+                folder.close(true)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("IMAPService", "Failed to delete message", e)
+            false
+        }
+    }
+
+    /**
+     * Find a message in a folder by Message-ID header
+     */
+    private fun findMessageByMessageId(folder: JavaMailFolder, messageId: String): Message? {
+        return try {
+            // Search for message by Message-ID header
+            val messages = folder.messages
+            messages.find { message ->
+                val msgId = message.getHeader("Message-ID")?.firstOrNull()
+                msgId == messageId
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("IMAPService", "Error finding message by ID", e)
+            null
+        }
+    }
 }

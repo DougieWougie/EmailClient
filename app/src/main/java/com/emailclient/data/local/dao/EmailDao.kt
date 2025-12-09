@@ -72,4 +72,31 @@ interface EmailDao {
 
     @Query("DELETE FROM emails WHERE accountId = :accountId")
     suspend fun deleteEmailsByAccount(accountId: Long)
+
+    /**
+     * Update flags for an existing email by messageId
+     */
+    @Query("""
+        UPDATE emails
+        SET isRead = :isRead, isFlagged = :isFlagged
+        WHERE messageId = :messageId
+    """)
+    suspend fun updateFlagsByMessageId(messageId: String, isRead: Boolean, isFlagged: Boolean): Int
+
+    /**
+     * Upsert emails - insert new emails and update flags for existing ones
+     * This preserves local email IDs while syncing server flag states
+     */
+    suspend fun upsertEmails(emails: List<EmailEntity>) {
+        emails.forEach { email ->
+            val existing = getEmailByMessageId(email.messageId)
+            if (existing != null) {
+                // Email exists - update only server-synced fields (flags)
+                updateFlagsByMessageId(email.messageId, email.isRead, email.isFlagged)
+            } else {
+                // New email - insert it
+                insertEmail(email)
+            }
+        }
+    }
 }

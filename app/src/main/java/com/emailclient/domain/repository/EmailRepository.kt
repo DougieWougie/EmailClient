@@ -40,4 +40,6 @@ interface EmailRepository {
     suspend fun moveToFolder(emailId: String, newFolderId: Long): Result<Unit>
 
     suspend fun deleteEmail(emailId: String): Result<Unit>
+
+    suspend fun archiveEmail(emailId: String): Result<Unit>
 }
