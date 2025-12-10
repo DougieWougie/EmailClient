@@ -75,6 +75,7 @@ class InboxViewModel @Inject constructor(
                     is Result.Success -> {
                         val inbox = inboxResult.data
                         _currentFolderId.value = inbox.id
+                        _isLoading.value = false
 
                         // Load emails from that folder
                         emailRepository.getEmailsByFolder(inbox.id).collect { emails ->
@@ -83,14 +84,15 @@ class InboxViewModel @Inject constructor(
                     }
                     is Result.Error -> {
                         _error.value = "Inbox folder not found. Try syncing your account."
+                        _isLoading.value = false
                     }
                     else -> {
                         _error.value = "Unknown error occurred"
+                        _isLoading.value = false
                     }
                 }
             } catch (e: Exception) {
                 _error.value = e.message ?: "Failed to load emails"
-            } finally {
                 _isLoading.value = false
             }
         }
