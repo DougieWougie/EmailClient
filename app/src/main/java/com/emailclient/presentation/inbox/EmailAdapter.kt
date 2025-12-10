@@ -14,7 +14,10 @@ import com.emailclient.domain.model.Email
  */
 class EmailAdapter(
     private val onEmailClick: (Email) -> Unit,
-    private val onEmailLongClick: (Email) -> Unit
+    private val onEmailLongClick: (Email) -> Unit,
+    private val isSelectionMode: () -> Boolean,
+    private val isEmailSelected: (String) -> Boolean,
+    private val onSelectionToggle: (Email) -> Unit
 ) : ListAdapter<Email, EmailAdapter.EmailViewHolder>(EmailDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): EmailViewHolder {
@@ -23,17 +26,44 @@ class EmailAdapter(
             parent,
             false
         )
-        return EmailViewHolder(binding, onEmailClick, onEmailLongClick)
+        return EmailViewHolder(
+            binding,
+            onEmailClick,
+            onEmailLongClick,
+            isSelectionMode,
+            isEmailSelected,
+            onSelectionToggle
+        )
     }
 
     override fun onBindViewHolder(holder: EmailViewHolder, position: Int) {
         holder.bind(getItem(position))
     }
 
+    override fun onBindViewHolder(
+        holder: EmailViewHolder,
+        position: Int,
+        payloads: MutableList<Any>
+    ) {
+        if (payloads.isEmpty()) {
+            super.onBindViewHolder(holder, position, payloads)
+        } else {
+            // Partial update for selection state only
+            holder.updateSelectionState(getItem(position))
+        }
+    }
+
+    fun notifySelectionChanged() {
+        notifyItemRangeChanged(0, itemCount, "SELECTION_CHANGED")
+    }
+
     class EmailViewHolder(
         private val binding: ItemEmailBinding,
         private val onEmailClick: (Email) -> Unit,
-        private val onEmailLongClick: (Email) -> Unit
+        private val onEmailLongClick: (Email) -> Unit,
+        private val isSelectionMode: () -> Boolean,
+        private val isEmailSelected: (String) -> Boolean,
+        private val onSelectionToggle: (Email) -> Unit
     ) : RecyclerView.ViewHolder(binding.root) {
 
         fun bind(email: Email) {
@@ -63,10 +93,47 @@ class EmailAdapter(
                     if (email.isFlagged) android.view.View.VISIBLE
                     else android.view.View.GONE
 
-                root.setOnClickListener { onEmailClick(email) }
+                // Selection state
+                updateSelectionState(email)
+
+                // Click handlers
+                root.setOnClickListener {
+                    if (isSelectionMode()) {
+                        onSelectionToggle(email)
+                    } else {
+                        onEmailClick(email)
+                    }
+                }
+
                 root.setOnLongClickListener {
-                    onEmailLongClick(email)
+                    if (!isSelectionMode()) {
+                        onEmailLongClick(email)
+                    }
                     true
+                }
+            }
+        }
+
+        fun updateSelectionState(email: Email) {
+            binding.apply {
+                val inSelectionMode = isSelectionMode()
+                val selected = isEmailSelected(email.id)
+
+                // Show/hide checkbox
+                checkboxSelect.visibility =
+                    if (inSelectionMode) android.view.View.VISIBLE
+                    else android.view.View.GONE
+
+                checkboxSelect.isChecked = selected
+
+                // Visual feedback for selection
+                if (inSelectionMode && selected) {
+                    root.strokeWidth = 4
+                    root.strokeColor = root.context.getColor(
+                        com.emailclient.R.color.md_theme_light_primary
+                    )
+                } else {
+                    root.strokeWidth = 0
                 }
             }
         }
@@ -79,6 +146,15 @@ class EmailAdapter(
 
         override fun areContentsTheSame(oldItem: Email, newItem: Email): Boolean {
             return oldItem == newItem
+        }
+
+        override fun getChangePayload(oldItem: Email, newItem: Email): Any? {
+            // Return payload for selection state changes only
+            return if (oldItem.id == newItem.id) {
+                "SELECTION_CHANGED"
+            } else {
+                null
+            }
         }
     }
 }

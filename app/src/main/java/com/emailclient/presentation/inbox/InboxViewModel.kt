@@ -38,6 +38,16 @@ class InboxViewModel @Inject constructor(
     private val _currentAccountId = MutableStateFlow<Long?>(null)
     private val _currentFolderId = MutableStateFlow<Long?>(null)
 
+    // Selection mode state
+    private val _isSelectionMode = MutableStateFlow(false)
+    val isSelectionMode: StateFlow<Boolean> = _isSelectionMode.asStateFlow()
+
+    private val _selectedEmailIds = MutableStateFlow<Set<String>>(emptySet())
+    val selectedEmailIds: StateFlow<Set<String>> = _selectedEmailIds.asStateFlow()
+
+    private val _isBulkOperationInProgress = MutableStateFlow(false)
+    val isBulkOperationInProgress: StateFlow<Boolean> = _isBulkOperationInProgress.asStateFlow()
+
     init {
         loadEmails()
     }
@@ -131,6 +141,183 @@ class InboxViewModel @Inject constructor(
     fun deleteEmail(emailId: String) {
         viewModelScope.launch {
             emailRepository.deleteEmail(emailId)
+        }
+    }
+
+    // Selection mode management
+    fun enterSelectionMode(initialEmailId: String) {
+        _isSelectionMode.value = true
+        _selectedEmailIds.value = setOf(initialEmailId)
+    }
+
+    fun exitSelectionMode() {
+        _isSelectionMode.value = false
+        _selectedEmailIds.value = emptySet()
+    }
+
+    fun toggleEmailSelection(emailId: String) {
+        val currentSelection = _selectedEmailIds.value.toMutableSet()
+        if (currentSelection.contains(emailId)) {
+            currentSelection.remove(emailId)
+        } else {
+            currentSelection.add(emailId)
+        }
+        _selectedEmailIds.value = currentSelection
+
+        // Auto-exit selection mode if no items selected
+        if (currentSelection.isEmpty()) {
+            exitSelectionMode()
+        }
+    }
+
+    fun selectAllEmails() {
+        _selectedEmailIds.value = _emails.value.map { it.id }.toSet()
+    }
+
+    fun deselectAllEmails() {
+        _selectedEmailIds.value = emptySet()
+        exitSelectionMode()
+    }
+
+    fun isEmailSelected(emailId: String): Boolean {
+        return _selectedEmailIds.value.contains(emailId)
+    }
+
+    fun getSelectedCount(): Int = _selectedEmailIds.value.size
+
+    fun getCurrentAccountId(): Long? = _currentAccountId.value
+
+    // Bulk operations
+    fun bulkMarkAsRead(read: Boolean) {
+        viewModelScope.launch {
+            _isBulkOperationInProgress.value = true
+            _error.value = null
+
+            try {
+                val selectedIds = _selectedEmailIds.value.toList()
+                var successCount = 0
+                var errorCount = 0
+
+                selectedIds.forEach { emailId ->
+                    when (emailRepository.markAsRead(emailId, read)) {
+                        is Result.Success -> successCount++
+                        is Result.Error -> errorCount++
+                        else -> {}
+                    }
+                }
+
+                if (errorCount > 0) {
+                    _error.value = "Failed to update $errorCount email(s)"
+                }
+
+                exitSelectionMode()
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Failed to mark emails"
+            } finally {
+                _isBulkOperationInProgress.value = false
+            }
+        }
+    }
+
+    fun bulkDelete() {
+        viewModelScope.launch {
+            _isBulkOperationInProgress.value = true
+            _error.value = null
+
+            try {
+                val selectedIds = _selectedEmailIds.value.toList()
+                var successCount = 0
+                var errorCount = 0
+
+                selectedIds.forEach { emailId ->
+                    when (emailRepository.deleteEmail(emailId)) {
+                        is Result.Success -> successCount++
+                        is Result.Error -> errorCount++
+                        else -> {}
+                    }
+                }
+
+                if (errorCount > 0) {
+                    _error.value = "Failed to delete $errorCount email(s)"
+                }
+
+                exitSelectionMode()
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Failed to delete emails"
+            } finally {
+                _isBulkOperationInProgress.value = false
+            }
+        }
+    }
+
+    fun bulkArchive() {
+        viewModelScope.launch {
+            _isBulkOperationInProgress.value = true
+            _error.value = null
+
+            try {
+                val selectedIds = _selectedEmailIds.value.toList()
+                var successCount = 0
+                var errorCount = 0
+
+                selectedIds.forEach { emailId ->
+                    when (emailRepository.archiveEmail(emailId)) {
+                        is Result.Success -> successCount++
+                        is Result.Error -> errorCount++
+                        else -> {}
+                    }
+                }
+
+                if (errorCount > 0) {
+                    _error.value = "Failed to archive $errorCount email(s)"
+                }
+
+                exitSelectionMode()
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Failed to archive emails"
+            } finally {
+                _isBulkOperationInProgress.value = false
+            }
+        }
+    }
+
+    fun bulkMoveToFolder(folderId: Long) {
+        viewModelScope.launch {
+            _isBulkOperationInProgress.value = true
+            _error.value = null
+
+            try {
+                val selectedIds = _selectedEmailIds.value.toList()
+                var successCount = 0
+                var errorCount = 0
+
+                selectedIds.forEach { emailId ->
+                    when (emailRepository.moveToFolder(emailId, folderId)) {
+                        is Result.Success -> successCount++
+                        is Result.Error -> errorCount++
+                        else -> {}
+                    }
+                }
+
+                if (errorCount > 0) {
+                    _error.value = "Failed to move $errorCount email(s)"
+                }
+
+                exitSelectionMode()
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Failed to move emails"
+            } finally {
+                _isBulkOperationInProgress.value = false
+            }
+        }
+    }
+
+    suspend fun getFoldersForAccount(accountId: Long): Result<List<com.emailclient.domain.model.Folder>> {
+        return try {
+            val folders = folderRepository.getFoldersByAccount(accountId).first()
+            Result.Success(folders)
+        } catch (e: Exception) {
+            Result.Error(e, "Failed to load folders")
         }
     }
 }
