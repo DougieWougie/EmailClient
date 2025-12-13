@@ -5,161 +5,90 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="16dp">
-
-        <TextView
-            android:id="@+id/textSubject"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:textAppearance="@style/TextAppearance.Material3.HeadlineSmall"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            tools:text="Email Subject" />
-
-        <TextView
-            android:id="@+id/labelFrom"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/email_from"
-            android:textAppearance="@style/TextAppearance.Material3.LabelMedium"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/textSubject" />
-
-        <TextView
-            android:id="@+id/textFrom"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toEndOf="@id/labelFrom"
-            app:layout_constraintTop_toTopOf="@id/labelFrom"
-            tools:text="sender@example.com" />
-
-        <TextView
-            android:id="@+id/labelTo"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/email_to"
-            android:textAppearance="@style/TextAppearance.Material3.LabelMedium"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/textFrom" />
-
-        <TextView
-            android:id="@+id/textTo"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toEndOf="@id/labelTo"
-            app:layout_constraintTop_toTopOf="@id/labelTo"
-            tools:text="recipient@example.com" />
-
-        <TextView
-            android:id="@+id/textDate"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
-            android:textColor="?attr/colorOnSurfaceVariant"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/textTo"
-            tools:text="Jan 1, 2024 at 10:00 AM" />
-
-        <com.google.android.material.divider.MaterialDivider
-            android:id="@+id/divider"
+        <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginVertical="16dp"
-            app:layout_constraintTop_toBottomOf="@id/textDate" />
+            android:padding="16dp">
 
-        <WebView
-            android:id="@+id/webViewBody"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/divider" />
-
-        <com.google.android.material.button.MaterialButtonToggleGroup
-            android:id="@+id/actionButtons"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            app:layout_constraintTop_toBottomOf="@id/webViewBody"
-            app:singleSelection="false">
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnReply"
-                style="@style/Widget.Material3.Button.OutlinedButton"
+            <TextView
+                android:id="@+id/textSubject"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/action_reply" />
+                android:textAppearance="@style/TextAppearance.Material3.HeadlineSmall"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                tools:text="Email Subject" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnReplyAll"
-                style="@style/Widget.Material3.Button.OutlinedButton"
+            <TextView
+                android:id="@+id/labelFrom"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/email_from"
+                android:textAppearance="@style/TextAppearance.Material3.LabelMedium"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/textSubject" />
+
+            <TextView
+                android:id="@+id/textFrom"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/action_reply_all" />
+                android:layout_marginStart="8dp"
+                android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toEndOf="@id/labelFrom"
+                app:layout_constraintTop_toTopOf="@id/labelFrom"
+                tools:text="sender@example.com" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnForward"
-                style="@style/Widget.Material3.Button.OutlinedButton"
+            <TextView
+                android:id="@+id/labelTo"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/email_to"
+                android:textAppearance="@style/TextAppearance.Material3.LabelMedium"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/textFrom" />
+
+            <TextView
+                android:id="@+id/textTo"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/action_forward" />
+                android:layout_marginStart="8dp"
+                android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toEndOf="@id/labelTo"
+                app:layout_constraintTop_toTopOf="@id/labelTo"
+                tools:text="recipient@example.com" />
 
-        </com.google.android.material.button.MaterialButtonToggleGroup>
-
-        <com.google.android.material.button.MaterialButtonToggleGroup
-            android:id="@+id/otherActionButtons"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            app:layout_constraintTop_toBottomOf="@id/actionButtons"
-            app:singleSelection="false">
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnMove"
-                style="@style/Widget.Material3.Button.OutlinedButton"
+            <TextView
+                android:id="@+id/textDate"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Move"
-                app:icon="@drawable/ic_folder" />
+                android:layout_marginTop="8dp"
+                android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/textTo"
+                tools:text="Jan 1, 2024 at 10:00 AM" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnArchive"
-                style="@style/Widget.Material3.Button.OutlinedButton"
+            <com.google.android.material.divider.MaterialDivider
+                android:id="@+id/divider"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginVertical="16dp"
+                app:layout_constraintTop_toBottomOf="@id/textDate" />
+
+            <WebView
+                android:id="@+id/webViewBody"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/action_archive"
-                app:icon="@drawable/ic_archive" />
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/divider" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnDelete"
-                style="@style/Widget.Material3.Button.OutlinedButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/action_delete"
-                app:icon="@drawable/ic_delete" />
-
-        </com.google.android.material.button.MaterialButtonToggleGroup>
-
-    </androidx.constraintlayout.widget.ConstraintLayout>
+        </androidx.constraintlayout.widget.ConstraintLayout>
 
 </androidx.core.widget.NestedScrollView>

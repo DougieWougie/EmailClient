@@ -1,5 +1,6 @@
 package com.emailclient.presentation.settings
 
+import android.app.ActivityOptions
 import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -45,6 +46,7 @@ class SettingsFragment : Fragment() {
 
         setupRecyclerView()
         setupSyncIntervalDropdown()
+        setupAnimationToggle()
         setupButtons()
         observeViewModel()
     }
@@ -102,11 +104,31 @@ class SettingsFragment : Fragment() {
         }
     }
 
+    private fun setupAnimationToggle() {
+        // Set initial state from preferences
+        binding.switchAnimations.isChecked = viewModel.areAnimationsEnabled()
+
+        // Handle toggle changes
+        binding.switchAnimations.setOnCheckedChangeListener { _, isChecked ->
+            viewModel.setAnimationsEnabled(isChecked)
+            Snackbar.make(
+                binding.root,
+                if (isChecked) "Activity animations enabled" else "Activity animations disabled",
+                Snackbar.LENGTH_SHORT
+            ).show()
+        }
+    }
+
     private fun setupButtons() {
         binding.buttonAddAccount.setOnClickListener {
             // Navigate to account setup
             val intent = Intent(requireContext(), AccountSetupActivity::class.java)
-            startActivity(intent)
+            if (viewModel.areAnimationsEnabled()) {
+                val options = ActivityOptions.makeSceneTransitionAnimation(requireActivity())
+                startActivity(intent, options.toBundle())
+            } else {
+                startActivity(intent)
+            }
         }
 
         binding.buttonManageFolders.setOnClickListener {

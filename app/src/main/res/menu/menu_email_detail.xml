@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/action_reply"
+        android:icon="@drawable/ic_reply"
+        android:title="@string/action_reply"
+        app:iconTint="?attr/colorOnPrimary"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/action_reply_all"
+        android:icon="@drawable/ic_reply_all"
+        android:title="@string/action_reply_all"
+        app:iconTint="?attr/colorOnPrimary"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/action_forward"
+        android:icon="@drawable/ic_forward"
+        android:title="@string/action_forward"
+        app:iconTint="?attr/colorOnPrimary"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/action_move"
+        android:icon="@drawable/ic_folder"
+        android:title="Move"
+        app:iconTint="?attr/colorOnPrimary"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/action_archive_email"
+        android:icon="@drawable/ic_archive"
+        android:title="@string/action_archive"
+        app:iconTint="?attr/colorOnPrimary"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/action_delete_email"
+        android:icon="@drawable/ic_delete"
+        android:title="@string/action_delete"
+        app:iconTint="?attr/colorOnPrimary"
+        app:showAsAction="always" />
+
+</menu>

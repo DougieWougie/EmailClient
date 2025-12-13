@@ -146,6 +146,20 @@ class SettingsViewModel @Inject constructor(
         return appPreferences.getSyncIntervalOptions()
     }
 
+    /**
+     * Get whether animations are enabled
+     */
+    fun areAnimationsEnabled(): Boolean {
+        return appPreferences.areAnimationsEnabled()
+    }
+
+    /**
+     * Set whether animations are enabled
+     */
+    fun setAnimationsEnabled(enabled: Boolean) {
+        appPreferences.setAnimationsEnabled(enabled)
+    }
+
     fun resetState() {
         _uiState.value = SettingsUiState.Idle
     }

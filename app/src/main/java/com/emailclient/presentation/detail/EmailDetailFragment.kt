@@ -3,9 +3,13 @@ package com.emailclient.presentation.detail
 import android.content.res.Configuration
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.Menu
+import android.view.MenuInflater
+import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
+import androidx.core.view.MenuProvider
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
@@ -13,6 +17,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
+import com.emailclient.R
 import com.emailclient.databinding.FragmentEmailDetailBinding
 import com.emailclient.domain.model.Email
 import com.google.android.material.snackbar.Snackbar
@@ -35,6 +40,8 @@ class EmailDetailFragment : Fragment() {
 
     private val dateFormat = SimpleDateFormat("MMM d, yyyy 'at' h:mm a", Locale.getDefault())
 
+    private var currentMenu: Menu? = null
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -47,12 +54,93 @@ class EmailDetailFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        setupMenu()
         setupWebView()
-        setupButtons()
         observeViewModel()
 
         // Load email
         viewModel.loadEmail(args.emailId)
+    }
+
+    private fun setupMenu() {
+        // Add menu to the existing activity toolbar
+        requireActivity().addMenuProvider(object : MenuProvider {
+            override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
+                menuInflater.inflate(R.menu.menu_email_detail, menu)
+                currentMenu = menu
+                updateMenuItemsState()
+            }
+
+            override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
+                return handleMenuItemClick(menuItem)
+            }
+        }, viewLifecycleOwner, Lifecycle.State.RESUMED)
+    }
+
+    private fun updateMenuItemsState() {
+        val hasEmail = viewModel.email.value != null
+        currentMenu?.apply {
+            findItem(R.id.action_reply)?.isEnabled = hasEmail
+            findItem(R.id.action_reply_all)?.isEnabled = hasEmail
+            findItem(R.id.action_forward)?.isEnabled = hasEmail
+            findItem(R.id.action_move)?.isEnabled = hasEmail
+            findItem(R.id.action_archive_email)?.isEnabled = hasEmail
+            findItem(R.id.action_delete_email)?.isEnabled = hasEmail
+        }
+    }
+
+    private fun handleMenuItemClick(menuItem: MenuItem): Boolean {
+        val email = viewModel.email.value ?: return false
+
+        return when (menuItem.itemId) {
+            R.id.action_reply -> {
+                val action = EmailDetailFragmentDirections.actionDetailToCompose(
+                    replyToEmailId = email.id,
+                    isReplyAll = false,
+                    isForward = false
+                )
+                findNavController().navigate(action)
+                true
+            }
+            R.id.action_reply_all -> {
+                val action = EmailDetailFragmentDirections.actionDetailToCompose(
+                    replyToEmailId = email.id,
+                    isReplyAll = true,
+                    isForward = false
+                )
+                findNavController().navigate(action)
+                true
+            }
+            R.id.action_forward -> {
+                val action = EmailDetailFragmentDirections.actionDetailToCompose(
+                    replyToEmailId = email.id,
+                    isReplyAll = false,
+                    isForward = true
+                )
+                findNavController().navigate(action)
+                true
+            }
+            R.id.action_move -> {
+                showMoveToFolderDialog(email.id)
+                true
+            }
+            R.id.action_archive_email -> {
+                viewModel.archiveEmail(email.id)
+                true
+            }
+            R.id.action_delete_email -> {
+                androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                    .setTitle("Delete Email")
+                    .setMessage("Are you sure you want to delete this email?")
+                    .setPositiveButton("Delete") { _, _ ->
+                        viewModel.deleteEmail(email.id)
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+                true
+            }
+            else -> false
+        }
     }
 
     private fun setupWebView() {
@@ -109,61 +197,6 @@ class EmailDetailFragment : Fragment() {
         }
     }
 
-    private fun setupButtons() {
-        binding.btnReply.setOnClickListener {
-            val email = viewModel.email.value ?: return@setOnClickListener
-            val action = EmailDetailFragmentDirections.actionDetailToCompose(
-                replyToEmailId = email.id,
-                isReplyAll = false,
-                isForward = false
-            )
-            findNavController().navigate(action)
-        }
-
-        binding.btnReplyAll.setOnClickListener {
-            val email = viewModel.email.value ?: return@setOnClickListener
-            val action = EmailDetailFragmentDirections.actionDetailToCompose(
-                replyToEmailId = email.id,
-                isReplyAll = true,
-                isForward = false
-            )
-            findNavController().navigate(action)
-        }
-
-        binding.btnForward.setOnClickListener {
-            val email = viewModel.email.value ?: return@setOnClickListener
-            val action = EmailDetailFragmentDirections.actionDetailToCompose(
-                replyToEmailId = email.id,
-                isReplyAll = false,
-                isForward = true
-            )
-            findNavController().navigate(action)
-        }
-
-        binding.btnMove.setOnClickListener {
-            val email = viewModel.email.value ?: return@setOnClickListener
-            showMoveToFolderDialog(email.id)
-        }
-
-        binding.btnArchive.setOnClickListener {
-            val email = viewModel.email.value ?: return@setOnClickListener
-            viewModel.archiveEmail(email.id)
-        }
-
-        binding.btnDelete.setOnClickListener {
-            val email = viewModel.email.value ?: return@setOnClickListener
-            // Show confirmation dialog
-            androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                .setTitle("Delete Email")
-                .setMessage("Are you sure you want to delete this email?")
-                .setPositiveButton("Delete") { _, _ ->
-                    viewModel.deleteEmail(email.id)
-                }
-                .setNegativeButton("Cancel", null)
-                .show()
-        }
-    }
-
     private fun showMoveToFolderDialog(emailId: String) {
         val dialogView = layoutInflater.inflate(com.emailclient.R.layout.dialog_move_to_folder, null)
         val recyclerView = dialogView.findViewById<androidx.recyclerview.widget.RecyclerView>(com.emailclient.R.id.recyclerViewFolders)
@@ -206,7 +239,10 @@ class EmailDetailFragment : Fragment() {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
                     viewModel.email.collect { email ->
-                        email?.let { displayEmail(it) }
+                        email?.let {
+                            displayEmail(it)
+                            updateMenuItemsState()
+                        }
                     }
                 }
 

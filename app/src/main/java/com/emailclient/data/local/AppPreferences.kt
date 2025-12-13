@@ -20,6 +20,7 @@ class AppPreferences @Inject constructor(
 
     companion object {
         private const val KEY_SYNC_INTERVAL = "sync_interval_minutes"
+        private const val KEY_ANIMATIONS_ENABLED = "animations_enabled"
         const val DEFAULT_SYNC_INTERVAL = 30 // 30 minutes default
     }
 
@@ -53,6 +54,21 @@ class AppPreferences @Inject constructor(
             SyncIntervalOption(1440, "24 hours"),
             SyncIntervalOption(0, "Manual only")
         )
+    }
+
+    /**
+     * Get whether activity animations are enabled
+     */
+    fun areAnimationsEnabled(): Boolean {
+        return prefs.getBoolean(KEY_ANIMATIONS_ENABLED, true) // Default to enabled
+    }
+
+    /**
+     * Set whether activity animations are enabled
+     */
+    fun setAnimationsEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_ANIMATIONS_ENABLED, enabled).apply()
+        android.util.Log.d("AppPreferences", "Animations enabled set to $enabled")
     }
 }
 

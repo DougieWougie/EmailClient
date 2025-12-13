@@ -2,8 +2,10 @@ package com.emailclient.presentation
 
 import android.content.Intent
 import android.os.Bundle
+import android.transition.Explode
 import android.view.Menu
 import android.view.MenuItem
+import android.view.Window
 import android.widget.TextView
 import androidx.core.os.bundleOf
 import androidx.activity.viewModels
@@ -18,6 +20,7 @@ import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
 import com.emailclient.R
+import com.emailclient.data.local.AppPreferences
 import com.emailclient.databinding.ActivityMainBinding
 import com.emailclient.domain.model.Account
 import com.emailclient.domain.model.Folder
@@ -26,6 +29,7 @@ import com.emailclient.presentation.setup.AccountSetupActivity
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
@@ -34,7 +38,23 @@ class MainActivity : AppCompatActivity() {
     private lateinit var appBarConfiguration: AppBarConfiguration
     private val viewModel: MainViewModel by viewModels()
 
+    @Inject
+    lateinit var appPreferences: AppPreferences
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Setup transitions if animations are enabled
+        // Note: Must check preferences directly before super.onCreate() since Hilt injection happens in super
+        val prefs = getSharedPreferences("app_preferences", MODE_PRIVATE)
+        val animationsEnabled = prefs.getBoolean("animations_enabled", true)
+
+        if (animationsEnabled) {
+            with(window) {
+                requestFeature(Window.FEATURE_CONTENT_TRANSITIONS)
+                enterTransition = Explode()
+                exitTransition = Explode()
+            }
+        }
+
         super.onCreate(savedInstanceState)
 
         binding = ActivityMainBinding.inflate(layoutInflater)
