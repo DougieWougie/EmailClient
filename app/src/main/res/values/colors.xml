@@ -37,4 +37,9 @@
 
     <color name="md_theme_dark_error">#CF6679</color>
     <color name="md_theme_dark_onError">#000000</color>
+
+    <!-- Swipe Action Colors -->
+    <color name="swipe_archive_background">#4CAF50</color>  <!-- Green -->
+    <color name="swipe_delete_background">#F44336</color>   <!-- Red -->
+    <color name="swipe_read_background">#2196F3</color>     <!-- Blue -->
 </resources>

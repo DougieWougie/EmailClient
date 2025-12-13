@@ -15,9 +15,11 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.emailclient.R
 import com.emailclient.databinding.FragmentFolderViewBinding
+import com.emailclient.presentation.common.EmailSwipeCallback
 import com.emailclient.presentation.inbox.EmailAdapter
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
@@ -90,6 +92,25 @@ class FolderViewFragment : Fragment() {
         binding.recyclerViewEmails.apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = emailAdapter
+
+            // Attach swipe callback
+            val swipeCallback = EmailSwipeCallback(
+                context = requireContext(),
+                onSwipeLeft = { position ->
+                    val email = emailAdapter.currentList.getOrNull(position) ?: return@EmailSwipeCallback
+                    val action = viewModel.getSwipeLeftAction()
+                    viewModel.performSwipeAction(email.id, action)
+                },
+                onSwipeRight = { position ->
+                    val email = emailAdapter.currentList.getOrNull(position) ?: return@EmailSwipeCallback
+                    val action = viewModel.getSwipeRightAction()
+                    viewModel.performSwipeAction(email.id, action)
+                },
+                getSwipeLeftAction = { viewModel.getSwipeLeftAction() },
+                getSwipeRightAction = { viewModel.getSwipeRightAction() }
+            )
+
+            ItemTouchHelper(swipeCallback).attachToRecyclerView(this)
         }
     }
 
@@ -156,6 +177,26 @@ class FolderViewFragment : Fragment() {
 
                         // Show loading indicator in ActionMode
                         actionMode?.invalidate()
+                    }
+                }
+
+                launch {
+                    viewModel.swipeActionResult.collect { result ->
+                        result?.let {
+                            Snackbar.make(binding.root, it, Snackbar.LENGTH_LONG)
+                                .setAction("UNDO") {
+                                    viewModel.undoSwipeAction()
+                                }
+                                .addCallback(object : Snackbar.Callback() {
+                                    override fun onDismissed(transientBottomBar: Snackbar?, event: Int) {
+                                        if (event != DISMISS_EVENT_ACTION) {
+                                            viewModel.finalizeSwipeAction()
+                                        }
+                                    }
+                                })
+                                .show()
+                            viewModel.clearSwipeActionResult()
+                        }
                     }
                 }
             }

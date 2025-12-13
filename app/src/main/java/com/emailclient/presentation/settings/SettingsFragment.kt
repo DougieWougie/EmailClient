@@ -47,6 +47,7 @@ class SettingsFragment : Fragment() {
         setupRecyclerView()
         setupSyncIntervalDropdown()
         setupAnimationToggle()
+        setupSwipeActionDropdowns()
         setupButtons()
         observeViewModel()
     }
@@ -114,6 +115,47 @@ class SettingsFragment : Fragment() {
             Snackbar.make(
                 binding.root,
                 if (isChecked) "Activity animations enabled" else "Activity animations disabled",
+                Snackbar.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    private fun setupSwipeActionDropdowns() {
+        val options = viewModel.getSwipeActionOptions()
+        val labels = options.map { it.displayName }
+
+        val adapter = ArrayAdapter(
+            requireContext(),
+            android.R.layout.simple_dropdown_item_1line,
+            labels
+        )
+
+        // Setup Left Swipe Dropdown
+        binding.swipeLeftActionDropdown.setAdapter(adapter)
+        val currentLeftAction = viewModel.getSwipeLeftAction()
+        binding.swipeLeftActionDropdown.setText(currentLeftAction.displayName, false)
+
+        binding.swipeLeftActionDropdown.setOnItemClickListener { _, _, position, _ ->
+            val selectedAction = options[position]
+            viewModel.setSwipeLeftAction(selectedAction)
+            Snackbar.make(
+                binding.root,
+                "Left swipe action set to ${selectedAction.displayName}",
+                Snackbar.LENGTH_SHORT
+            ).show()
+        }
+
+        // Setup Right Swipe Dropdown
+        binding.swipeRightActionDropdown.setAdapter(adapter)
+        val currentRightAction = viewModel.getSwipeRightAction()
+        binding.swipeRightActionDropdown.setText(currentRightAction.displayName, false)
+
+        binding.swipeRightActionDropdown.setOnItemClickListener { _, _, position, _ ->
+            val selectedAction = options[position]
+            viewModel.setSwipeRightAction(selectedAction)
+            Snackbar.make(
+                binding.root,
+                "Right swipe action set to ${selectedAction.displayName}",
                 Snackbar.LENGTH_SHORT
             ).show()
         }

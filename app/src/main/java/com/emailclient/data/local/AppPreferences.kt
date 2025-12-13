@@ -2,6 +2,7 @@ package com.emailclient.data.local
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.emailclient.domain.model.SwipeAction
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -21,6 +22,8 @@ class AppPreferences @Inject constructor(
     companion object {
         private const val KEY_SYNC_INTERVAL = "sync_interval_minutes"
         private const val KEY_ANIMATIONS_ENABLED = "animations_enabled"
+        private const val KEY_SWIPE_LEFT_ACTION = "swipe_left_action"
+        private const val KEY_SWIPE_RIGHT_ACTION = "swipe_right_action"
         const val DEFAULT_SYNC_INTERVAL = 30 // 30 minutes default
     }
 
@@ -69,6 +72,38 @@ class AppPreferences @Inject constructor(
     fun setAnimationsEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_ANIMATIONS_ENABLED, enabled).apply()
         android.util.Log.d("AppPreferences", "Animations enabled set to $enabled")
+    }
+
+    /**
+     * Get swipe left action
+     */
+    fun getSwipeLeftAction(): SwipeAction {
+        val ordinal = prefs.getInt(KEY_SWIPE_LEFT_ACTION, SwipeAction.MARK_READ.ordinal)
+        return SwipeAction.fromOrdinal(ordinal)
+    }
+
+    /**
+     * Set swipe left action
+     */
+    fun setSwipeLeftAction(action: SwipeAction) {
+        prefs.edit().putInt(KEY_SWIPE_LEFT_ACTION, action.ordinal).apply()
+        android.util.Log.d("AppPreferences", "Swipe left action set to ${action.displayName}")
+    }
+
+    /**
+     * Get swipe right action
+     */
+    fun getSwipeRightAction(): SwipeAction {
+        val ordinal = prefs.getInt(KEY_SWIPE_RIGHT_ACTION, SwipeAction.ARCHIVE.ordinal)
+        return SwipeAction.fromOrdinal(ordinal)
+    }
+
+    /**
+     * Set swipe right action
+     */
+    fun setSwipeRightAction(action: SwipeAction) {
+        prefs.edit().putInt(KEY_SWIPE_RIGHT_ACTION, action.ordinal).apply()
+        android.util.Log.d("AppPreferences", "Swipe right action set to ${action.displayName}")
     }
 }
 

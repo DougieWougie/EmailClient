@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.emailclient.data.local.AppPreferences
 import com.emailclient.data.local.SyncIntervalOption
 import com.emailclient.domain.model.Account
+import com.emailclient.domain.model.SwipeAction
 import com.emailclient.domain.repository.AccountRepository
 import com.emailclient.util.Result
 import com.emailclient.util.WorkManagerHelper
@@ -158,6 +159,41 @@ class SettingsViewModel @Inject constructor(
      */
     fun setAnimationsEnabled(enabled: Boolean) {
         appPreferences.setAnimationsEnabled(enabled)
+    }
+
+    /**
+     * Get swipe left action
+     */
+    fun getSwipeLeftAction(): SwipeAction {
+        return appPreferences.getSwipeLeftAction()
+    }
+
+    /**
+     * Set swipe left action
+     */
+    fun setSwipeLeftAction(action: SwipeAction) {
+        appPreferences.setSwipeLeftAction(action)
+    }
+
+    /**
+     * Get swipe right action
+     */
+    fun getSwipeRightAction(): SwipeAction {
+        return appPreferences.getSwipeRightAction()
+    }
+
+    /**
+     * Set swipe right action
+     */
+    fun setSwipeRightAction(action: SwipeAction) {
+        appPreferences.setSwipeRightAction(action)
+    }
+
+    /**
+     * Get available swipe action options
+     */
+    fun getSwipeActionOptions(): List<SwipeAction> {
+        return SwipeAction.values().toList()
     }
 
     fun resetState() {

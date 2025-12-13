@@ -2,11 +2,14 @@ package com.emailclient.presentation.inbox
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.emailclient.data.local.AppPreferences
 import com.emailclient.domain.model.Email
 import com.emailclient.domain.model.FolderType
+import com.emailclient.domain.model.SwipeAction
 import com.emailclient.domain.repository.AccountRepository
 import com.emailclient.domain.repository.EmailRepository
 import com.emailclient.domain.repository.FolderRepository
+import com.emailclient.presentation.common.PendingSwipeAction
 import com.emailclient.util.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +26,8 @@ import javax.inject.Inject
 class InboxViewModel @Inject constructor(
     private val emailRepository: EmailRepository,
     private val accountRepository: AccountRepository,
-    private val folderRepository: FolderRepository
+    private val folderRepository: FolderRepository,
+    private val appPreferences: AppPreferences
 ) : ViewModel() {
 
     private val _emails = MutableStateFlow<List<Email>>(emptyList())
@@ -47,6 +51,12 @@ class InboxViewModel @Inject constructor(
 
     private val _isBulkOperationInProgress = MutableStateFlow(false)
     val isBulkOperationInProgress: StateFlow<Boolean> = _isBulkOperationInProgress.asStateFlow()
+
+    // Swipe action state
+    private var pendingSwipeAction: PendingSwipeAction? = null
+
+    private val _swipeActionResult = MutableStateFlow<String?>(null)
+    val swipeActionResult: StateFlow<String?> = _swipeActionResult.asStateFlow()
 
     init {
         loadEmails()
@@ -322,4 +332,71 @@ class InboxViewModel @Inject constructor(
             Result.Error(e, "Failed to load folders")
         }
     }
+
+    // Swipe action methods
+    fun performSwipeAction(emailId: String, action: SwipeAction) {
+        if (action == SwipeAction.NONE) return
+
+        viewModelScope.launch {
+            val email = _emails.value.find { it.id == emailId } ?: return@launch
+
+            // Store for undo
+            pendingSwipeAction = PendingSwipeAction(
+                emailId = emailId,
+                action = action,
+                originalReadState = if (action == SwipeAction.MARK_READ) email.isRead else null,
+                originalFolderId = if (action == SwipeAction.ARCHIVE || action == SwipeAction.DELETE) _currentFolderId.value else null
+            )
+
+            when (action) {
+                SwipeAction.ARCHIVE -> {
+                    emailRepository.archiveEmail(emailId)
+                    _swipeActionResult.value = "Email archived"
+                }
+                SwipeAction.DELETE -> {
+                    emailRepository.deleteEmail(emailId)
+                    _swipeActionResult.value = "Email deleted"
+                }
+                SwipeAction.MARK_READ -> {
+                    val newReadState = !email.isRead
+                    emailRepository.markAsRead(emailId, newReadState)
+                    _swipeActionResult.value = if (newReadState) "Marked as read" else "Marked as unread"
+                }
+                SwipeAction.NONE -> {}
+            }
+        }
+    }
+
+    fun undoSwipeAction() {
+        val pending = pendingSwipeAction ?: return
+        viewModelScope.launch {
+            when (pending.action) {
+                SwipeAction.ARCHIVE, SwipeAction.DELETE -> {
+                    // Move back to original folder
+                    pending.originalFolderId?.let { originalFolderId ->
+                        emailRepository.moveToFolder(pending.emailId, originalFolderId)
+                    }
+                }
+                SwipeAction.MARK_READ -> {
+                    pending.originalReadState?.let { originalState ->
+                        emailRepository.markAsRead(pending.emailId, originalState)
+                    }
+                }
+                SwipeAction.NONE -> {}
+            }
+            pendingSwipeAction = null
+        }
+    }
+
+    fun finalizeSwipeAction() {
+        pendingSwipeAction = null
+    }
+
+    fun clearSwipeActionResult() {
+        _swipeActionResult.value = null
+    }
+
+    fun getSwipeLeftAction(): SwipeAction = appPreferences.getSwipeLeftAction()
+
+    fun getSwipeRightAction(): SwipeAction = appPreferences.getSwipeRightAction()
 }

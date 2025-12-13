@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Swipe Action Dimensions -->
+    <dimen name="swipe_icon_size">24dp</dimen>
+    <dimen name="swipe_icon_margin">32dp</dimen>
+</resources>
