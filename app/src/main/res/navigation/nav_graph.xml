@@ -70,4 +70,31 @@
         android:label="Manage Folders"
         tools:layout="@layout/fragment_folder_management" />
 
+    <fragment
+        android:id="@+id/folderViewFragment"
+        android:name="com.emailclient.presentation.folder.FolderViewFragment"
+        android:label="{folderName}"
+        tools:layout="@layout/fragment_folder_view">
+        <argument
+            android:name="folderId"
+            app:argType="long" />
+        <argument
+            android:name="folderName"
+            app:argType="string"
+            android:defaultValue="Folder" />
+        <action
+            android:id="@+id/action_folder_to_detail"
+            app:destination="@id/emailDetailFragment" />
+        <action
+            android:id="@+id/action_folder_to_compose"
+            app:destination="@id/composeFragment" />
+    </fragment>
+
+    <action
+        android:id="@+id/action_global_folder_view"
+        app:destination="@id/folderViewFragment"
+        app:popUpTo="@id/nav_graph"
+        app:popUpToInclusive="false"
+        app:launchSingleTop="true" />
+
 </navigation>
