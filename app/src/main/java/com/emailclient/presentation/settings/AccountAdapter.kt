@@ -15,6 +15,7 @@ class AccountAdapter(
     private val onAccountClick: (Account) -> Unit,
     private val onSetDefault: (Long) -> Unit,
     private val onToggleSync: (Long, Boolean) -> Unit,
+    private val onEditAccount: (Account) -> Unit,
     private val onDeleteAccount: (Long, String) -> Unit
 ) : ListAdapter<Account, AccountAdapter.AccountViewHolder>(AccountDiffCallback()) {
 
@@ -66,6 +67,10 @@ class AccountAdapter(
 
             binding.buttonSetDefault.setOnClickListener {
                 onSetDefault(account.id)
+            }
+
+            binding.buttonEdit.setOnClickListener {
+                onEditAccount(account)
             }
 
             binding.buttonDelete.setOnClickListener {

@@ -33,6 +33,33 @@ class AccountSetupViewModel @Inject constructor(
     private val _discoveredConfig = MutableStateFlow<AutoDiscoveryService.DiscoveredConfig?>(null)
     val discoveredConfig: StateFlow<AutoDiscoveryService.DiscoveredConfig?> = _discoveredConfig.asStateFlow()
 
+    private val _editingAccount = MutableStateFlow<Account?>(null)
+    val editingAccount: StateFlow<Account?> = _editingAccount.asStateFlow()
+
+    val isEditMode: Boolean
+        get() = _editingAccount.value != null
+
+    /**
+     * Load account for editing
+     */
+    fun loadAccountForEdit(accountId: Long) {
+        viewModelScope.launch {
+            when (val result = accountRepository.getAccountById(accountId)) {
+                is Result.Success -> {
+                    _editingAccount.value = result.data
+                }
+                is Result.Error -> {
+                    _uiState.value = AccountSetupState.Error(
+                        result.message ?: "Failed to load account"
+                    )
+                }
+                else -> {
+                    _uiState.value = AccountSetupState.Error("Unknown error occurred")
+                }
+            }
+        }
+    }
+
     /**
      * Discover email server settings automatically
      */
@@ -139,26 +166,52 @@ class AccountSetupViewModel @Inject constructor(
     }
 
     /**
-     * Add account after successful test
+     * Add or update account after successful test
      */
     fun addAccount(account: Account, password: String) {
         viewModelScope.launch {
             _uiState.value = AccountSetupState.Adding
 
-            when (val result = accountRepository.addAccount(account, password)) {
-                is Result.Success -> {
-                    // Schedule background sync
-                    workManagerHelper.schedulePeriodicSync()
+            val editingAccountValue = _editingAccount.value
 
-                    _uiState.value = AccountSetupState.Success(result.data)
+            if (editingAccountValue != null) {
+                // Edit mode: Update existing account
+                val updatedAccount = account.copy(
+                    id = editingAccountValue.id,
+                    isDefault = editingAccountValue.isDefault,
+                    syncEnabled = editingAccountValue.syncEnabled
+                )
+
+                when (val result = accountRepository.updateAccount(updatedAccount)) {
+                    is Result.Success -> {
+                        _uiState.value = AccountSetupState.Success(updatedAccount.id)
+                    }
+                    is Result.Error -> {
+                        _uiState.value = AccountSetupState.Error(
+                            result.message ?: "Failed to update account"
+                        )
+                    }
+                    else -> {
+                        _uiState.value = AccountSetupState.Error("Unknown error occurred")
+                    }
                 }
-                is Result.Error -> {
-                    _uiState.value = AccountSetupState.Error(
-                        result.message ?: "Failed to add account"
-                    )
-                }
-                else -> {
-                    _uiState.value = AccountSetupState.Error("Unknown error occurred")
+            } else {
+                // Create mode: Add new account
+                when (val result = accountRepository.addAccount(account, password)) {
+                    is Result.Success -> {
+                        // Schedule background sync
+                        workManagerHelper.schedulePeriodicSync()
+
+                        _uiState.value = AccountSetupState.Success(result.data)
+                    }
+                    is Result.Error -> {
+                        _uiState.value = AccountSetupState.Error(
+                            result.message ?: "Failed to add account"
+                        )
+                    }
+                    else -> {
+                        _uiState.value = AccountSetupState.Error("Unknown error occurred")
+                    }
                 }
             }
         }

@@ -15,6 +15,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.emailclient.databinding.FragmentSettingsBinding
+import com.emailclient.domain.model.Account
 import com.emailclient.presentation.setup.AccountSetupActivity
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
@@ -63,6 +64,9 @@ class SettingsFragment : Fragment() {
             },
             onToggleSync = { accountId, enabled ->
                 viewModel.toggleAccountSync(accountId, enabled)
+            },
+            onEditAccount = { account ->
+                editAccount(account)
             },
             onDeleteAccount = { accountId, email ->
                 showDeleteConfirmation(accountId, email)
@@ -199,6 +203,17 @@ class SettingsFragment : Fragment() {
                 }
             }
             .show()
+    }
+
+    private fun editAccount(account: Account) {
+        val intent = Intent(requireContext(), AccountSetupActivity::class.java)
+        intent.putExtra(AccountSetupActivity.EXTRA_ACCOUNT_ID, account.id)
+        if (viewModel.areAnimationsEnabled()) {
+            val options = ActivityOptions.makeSceneTransitionAnimation(requireActivity())
+            startActivity(intent, options.toBundle())
+        } else {
+            startActivity(intent)
+        }
     }
 
     private fun showDeleteConfirmation(accountId: Long, email: String) {

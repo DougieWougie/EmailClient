@@ -6,7 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.viewModels
+import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -26,7 +26,7 @@ class ManualConfigFragment : Fragment() {
     private var _binding: FragmentManualConfigBinding? = null
     private val binding get() = _binding!!
 
-    private val viewModel: AccountSetupViewModel by viewModels()
+    private val viewModel: AccountSetupViewModel by activityViewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -44,6 +44,7 @@ class ManualConfigFragment : Fragment() {
         setupButtons()
         observeViewModel()
         observeDiscoveredConfig()
+        observeEditingAccount()
         setupAutoDetect()
     }
 
@@ -281,6 +282,39 @@ class ManualConfigFragment : Fragment() {
             SecurityType.NONE -> 0
             SecurityType.SSL_TLS -> 1
             SecurityType.STARTTLS -> 2
+        }
+    }
+
+    private fun observeEditingAccount() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.editingAccount.collect { account ->
+                    account?.let {
+                        // Pre-fill all fields with existing account data
+                        binding.editTextEmail.setText(it.email)
+                        binding.editTextDisplayName.setText(it.displayName)
+
+                        // Pre-fill IMAP settings
+                        binding.editTextImapHost.setText(it.imapConfig.host)
+                        binding.editTextImapPort.setText(it.imapConfig.port.toString())
+                        binding.spinnerImapSecurity.setSelection(
+                            getSecurityTypePosition(it.imapConfig.securityType)
+                        )
+
+                        // Pre-fill SMTP settings
+                        binding.editTextSmtpHost.setText(it.smtpConfig.host)
+                        binding.editTextSmtpPort.setText(it.smtpConfig.port.toString())
+                        binding.spinnerSmtpSecurity.setSelection(
+                            getSecurityTypePosition(it.smtpConfig.securityType)
+                        )
+
+                        // Disable email field when editing (can't change email)
+                        binding.editTextEmail.isEnabled = false
+
+                        android.util.Log.d("ManualConfig", "Pre-filled account: ${it.email}")
+                    }
+                }
+            }
         }
     }
 

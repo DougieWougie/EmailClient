@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.transition.Explode
 import android.view.Window
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.navigation.fragment.NavHostFragment
 import com.emailclient.R
@@ -24,6 +25,8 @@ class AccountSetupActivity : AppCompatActivity() {
 
     @Inject
     lateinit var appPreferences: AppPreferences
+
+    private val viewModel: AccountSetupViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Setup transitions if animations are enabled
@@ -45,22 +48,39 @@ class AccountSetupActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         setSupportActionBar(binding.toolbar)
-        supportActionBar?.setDisplayHomeAsUpEnabled(false)
+
+        // Check if we're editing an existing account
+        val accountId = intent.getLongExtra(EXTRA_ACCOUNT_ID, -1L)
+        if (accountId != -1L) {
+            // Edit mode
+            supportActionBar?.setDisplayHomeAsUpEnabled(true)
+            supportActionBar?.title = "Edit Account"
+            viewModel.loadAccountForEdit(accountId)
+        } else {
+            // Create mode
+            supportActionBar?.setDisplayHomeAsUpEnabled(false)
+        }
     }
 
     /**
-     * Navigate to main app after successful account setup
+     * Navigate to main app after successful account setup or finish edit
      */
     fun finishSetup() {
-        val intent = Intent(this, MainActivity::class.java)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        if (appPreferences.areAnimationsEnabled()) {
-            val options = ActivityOptions.makeSceneTransitionAnimation(this)
-            startActivity(intent, options.toBundle())
+        if (viewModel.isEditMode) {
+            // Edit mode: Just finish and return to settings
+            finish()
         } else {
-            startActivity(intent)
+            // Create mode: Navigate to main app
+            val intent = Intent(this, MainActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            if (appPreferences.areAnimationsEnabled()) {
+                val options = ActivityOptions.makeSceneTransitionAnimation(this)
+                startActivity(intent, options.toBundle())
+            } else {
+                startActivity(intent)
+            }
+            finish()
         }
-        finish()
     }
 
     override fun onSupportNavigateUp(): Boolean {
@@ -68,5 +88,9 @@ class AccountSetupActivity : AppCompatActivity() {
             .findFragmentById(R.id.nav_host_fragment_setup) as NavHostFragment
         val navController = navHostFragment.navController
         return navController.navigateUp() || super.onSupportNavigateUp()
+    }
+
+    companion object {
+        const val EXTRA_ACCOUNT_ID = "extra_account_id"
     }
 }
