@@ -31,19 +31,10 @@ class SMTPService @Inject constructor() {
         isHtml: Boolean = false
     ): Boolean = withContext(Dispatchers.IO) {
         try {
-            android.util.Log.d("SMTPService", "=== SMTP Send Email ===")
-            android.util.Log.d("SMTPService", "Host: ${account.smtpConfig.host}")
-            android.util.Log.d("SMTPService", "Port: ${account.smtpConfig.port}")
-            android.util.Log.d("SMTPService", "To: ${to.joinToString(", ")}")
-            android.util.Log.d("SMTPService", "Subject: $subject")
-
             val session = createSession(account, password)
             val message = createMessage(session, account, to, cc, bcc, subject, body, isHtml)
 
-            android.util.Log.d("SMTPService", "Sending message...")
             Transport.send(message)
-
-            android.util.Log.d("SMTPService", "✓ Email sent successfully!")
             true
         } catch (e: AuthenticationFailedException) {
             android.util.Log.e("SMTPService", "✗ SMTP Authentication FAILED", e)
@@ -89,18 +80,19 @@ class SMTPService @Inject constructor() {
                 SecurityType.SSL_TLS -> {
                     put("mail.smtp.ssl.enable", "true")
                     put("mail.smtp.ssl.protocols", "TLSv1.2 TLSv1.3")
-                    put("mail.smtp.ssl.trust", "*")
-                    put("mail.smtp.ssl.checkserveridentity", "false")
+                    put("mail.smtp.ssl.checkserveridentity", "true")
                 }
                 SecurityType.STARTTLS -> {
                     put("mail.smtp.starttls.enable", "true")
                     put("mail.smtp.starttls.required", "true")
                     put("mail.smtp.ssl.protocols", "TLSv1.2 TLSv1.3")
-                    put("mail.smtp.ssl.trust", "*")
-                    put("mail.smtp.ssl.checkserveridentity", "false")
+                    put("mail.smtp.ssl.checkserveridentity", "true")
                 }
                 SecurityType.NONE -> {
-                    // No encryption
+                    throw SecurityException(
+                        "Unencrypted connections are not allowed for security reasons. " +
+                        "Please use SSL/TLS or STARTTLS."
+                    )
                 }
             }
 

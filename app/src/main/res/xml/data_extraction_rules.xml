@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <data-extraction-rules>
     <cloud-backup>
-        <include domain="sharedpref" path="."/>
-        <exclude domain="sharedpref" path="secure_prefs.xml"/>
+        <!-- Exclude sensitive data from cloud backup -->
+        <exclude domain="sharedpref" path="secure_email_credentials.xml"/>
+        <exclude domain="sharedpref" path="app_preferences.xml"/>
+        <exclude domain="database" path="email_client_db"/>
+        <exclude domain="database" path="email_client_db-shm"/>
+        <exclude domain="database" path="email_client_db-wal"/>
     </cloud-backup>
 </data-extraction-rules>

@@ -40,18 +40,19 @@ class IMAPService @Inject constructor() {
                     SecurityType.SSL_TLS -> {
                         put("mail.imap.ssl.enable", "true")
                         put("mail.imap.ssl.protocols", "TLSv1.2 TLSv1.3")
-                        put("mail.imap.ssl.trust", "*")
-                        put("mail.imap.ssl.checkserveridentity", "false")
+                        put("mail.imap.ssl.checkserveridentity", "true")
                     }
                     SecurityType.STARTTLS -> {
                         put("mail.imap.starttls.enable", "true")
                         put("mail.imap.starttls.required", "true")
                         put("mail.imap.ssl.protocols", "TLSv1.2 TLSv1.3")
-                        put("mail.imap.ssl.trust", "*")
-                        put("mail.imap.ssl.checkserveridentity", "false")
+                        put("mail.imap.ssl.checkserveridentity", "true")
                     }
                     SecurityType.NONE -> {
-                        // No encryption
+                        throw SecurityException(
+                            "Unencrypted connections are not allowed for security reasons. " +
+                            "Please use SSL/TLS or STARTTLS."
+                        )
                     }
                 }
 
@@ -70,27 +71,15 @@ class IMAPService @Inject constructor() {
                 put("mail.imap.ssl.socketFactory.fallback", "false")
             }
 
-            android.util.Log.d("IMAPService", "=== IMAP Connection Attempt ===")
-            android.util.Log.d("IMAPService", "Host: ${account.imapConfig.host}")
-            android.util.Log.d("IMAPService", "Port: ${account.imapConfig.port}")
-            android.util.Log.d("IMAPService", "Username: ${account.imapConfig.username}")
-            android.util.Log.d("IMAPService", "Security: ${account.imapConfig.securityType}")
-            android.util.Log.d("IMAPService", "Auth Type: ${account.imapConfig.authenticationType}")
-            android.util.Log.d("IMAPService", "Password Length: ${password.length} chars")
-
             val session = Session.getInstance(props)
-            session.debug = true // Enable JavaMail debug output
+            session.debug = false
             val store = session.getStore("imap")
 
-            android.util.Log.d("IMAPService", "Attempting to connect to store...")
             store.connect(
                 account.imapConfig.host,
                 account.imapConfig.username,
                 password
             )
-
-            android.util.Log.d("IMAPService", "✓ IMAP Connection successful!")
-            android.util.Log.d("IMAPService", "Store connected: ${store.isConnected}")
             store
         } catch (e: AuthenticationFailedException) {
             android.util.Log.e("IMAPService", "✗ IMAP Authentication FAILED")
@@ -349,14 +338,18 @@ class IMAPService @Inject constructor() {
     }
 
     /**
-     * Detect if content contains HTML tags
+     * Detect if content contains HTML tags (ReDoS-safe implementation)
      */
     private fun containsHtmlTags(content: String): Boolean {
-        val htmlTagPattern = Regex(
-            "<(div|p|br|span|a|img|table|tr|td|th|h[1-6]|ul|ol|li|strong|em|b|i|u|html|body|head)[\\s>]",
-            RegexOption.IGNORE_CASE
-        )
-        return htmlTagPattern.containsMatchIn(content)
+        // Use simple string matching instead of complex regex to avoid ReDoS
+        return content.contains("<div", ignoreCase = true) ||
+               content.contains("<p>", ignoreCase = true) ||
+               content.contains("<p ", ignoreCase = true) ||
+               content.contains("<br", ignoreCase = true) ||
+               content.contains("<span", ignoreCase = true) ||
+               content.contains("<table", ignoreCase = true) ||
+               content.contains("<html", ignoreCase = true) ||
+               content.contains("<body", ignoreCase = true)
     }
 
     /**

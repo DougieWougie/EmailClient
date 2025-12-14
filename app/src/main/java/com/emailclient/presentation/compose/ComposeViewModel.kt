@@ -28,6 +28,10 @@ class ComposeViewModel @Inject constructor(
     private val _composeData = MutableStateFlow<ComposeData?>(null)
     val composeData: StateFlow<ComposeData?> = _composeData.asStateFlow()
 
+    // Rate limiting
+    private val sentTimes = mutableListOf<Long>()
+    private val maxEmailsPer5Min = 20
+
     /**
      * Prepare compose screen for reply or forward
      */
@@ -109,6 +113,31 @@ class ComposeViewModel @Inject constructor(
             _uiState.value = ComposeState.Sending
 
             try {
+                // Check rate limit
+                if (!checkRateLimit()) {
+                    _uiState.value = ComposeState.Error(
+                        "Rate limit exceeded. You can send a maximum of $maxEmailsPer5Min emails per 5 minutes. Please wait before sending more emails."
+                    )
+                    return@launch
+                }
+
+                // Validate subject and body
+                if (subject.length > 998) {
+                    _uiState.value = ComposeState.Error("Subject too long (maximum 998 characters)")
+                    return@launch
+                }
+
+                if (body.length > 10_000_000) {
+                    _uiState.value = ComposeState.Error("Email body too large (maximum 10 MB)")
+                    return@launch
+                }
+
+                // Check for null bytes and control characters
+                if (subject.contains('\u0000') || body.contains('\u0000')) {
+                    _uiState.value = ComposeState.Error("Email contains invalid characters")
+                    return@launch
+                }
+
                 // Get the default account
                 val accounts = accountRepository.getAllAccounts().first()
                 if (accounts.isEmpty()) {
@@ -161,12 +190,47 @@ class ComposeViewModel @Inject constructor(
     }
 
     /**
-     * Parse comma-separated email addresses
+     * Parse and validate comma-separated email addresses
      */
     private fun parseEmailAddresses(addresses: String): List<String> {
+        if (addresses.isEmpty()) return emptyList()
+
+        // Basic email regex pattern
+        val emailPattern = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
+
         return addresses.split(",")
             .map { it.trim() }
             .filter { it.isNotEmpty() }
+            .onEach { email ->
+                // Check for email injection attempts
+                if (email.contains("\n") || email.contains("\r") ||
+                    email.contains("\t") || email.contains("\u0000")) {
+                    throw SecurityException("Invalid email address: Email injection attempt detected")
+                }
+
+                // Validate email format
+                if (!emailPattern.matches(email)) {
+                    throw IllegalArgumentException("Invalid email address format: $email")
+                }
+            }
+    }
+
+    /**
+     * Check rate limit for sending emails
+     */
+    private fun checkRateLimit(): Boolean {
+        val now = System.currentTimeMillis()
+        val fiveMinutesAgo = now - (5 * 60 * 1000)
+
+        // Remove old entries
+        sentTimes.removeAll { it < fiveMinutesAgo }
+
+        if (sentTimes.size >= maxEmailsPer5Min) {
+            return false
+        }
+
+        sentTimes.add(now)
+        return true
     }
 
     fun resetState() {

@@ -23,6 +23,8 @@ import com.emailclient.domain.model.Email
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import org.jsoup.Jsoup
+import org.jsoup.safety.Safelist
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -161,9 +163,9 @@ class EmailDetailFragment : Fragment() {
                 // Mixed content and safe browsing
                 mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
 
-                // Remote images - block by default for privacy/security
-                blockNetworkImage = false // Set to true to block remote images
-                blockNetworkLoads = false // Set to true to block all network requests
+                // Block network access for privacy and security
+                blockNetworkImage = true
+                blockNetworkLoads = true
             }
 
             // Enable dynamic height adjustment
@@ -338,21 +340,37 @@ class EmailDetailFragment : Fragment() {
     }
 
     /**
-     * Detect if content contains HTML tags
+     * Detect if content contains HTML tags (ReDoS-safe implementation)
      */
     private fun containsHtmlTags(content: String): Boolean {
-        // Check for common HTML tags
-        val htmlTagPattern = Regex(
-            "<(div|p|br|span|a|img|table|tr|td|th|h[1-6]|ul|ol|li|strong|em|b|i|u|html|body|head)[\\s>]",
-            RegexOption.IGNORE_CASE
-        )
-        return htmlTagPattern.containsMatchIn(content)
+        // Use simple string matching instead of complex regex to avoid ReDoS
+        return content.contains("<div", ignoreCase = true) ||
+               content.contains("<p>", ignoreCase = true) ||
+               content.contains("<p ", ignoreCase = true) ||
+               content.contains("<br", ignoreCase = true) ||
+               content.contains("<span", ignoreCase = true) ||
+               content.contains("<table", ignoreCase = true) ||
+               content.contains("<html", ignoreCase = true) ||
+               content.contains("<body", ignoreCase = true) ||
+               content.contains("</div>", ignoreCase = true) ||
+               content.contains("</p>", ignoreCase = true)
     }
 
     /**
-     * Wrap HTML content with proper styling
+     * Wrap HTML content with proper styling and sanitization
      */
     private fun wrapHtmlContent(html: String): String {
+        // Sanitize HTML using JSoup to prevent XSS attacks
+        val sanitized = Jsoup.clean(
+            html,
+            Safelist.relaxed()
+                .addTags("div", "span", "pre", "code", "hr")
+                .addAttributes("a", "href", "title")
+                .addAttributes("img", "src", "alt", "title", "width", "height")
+                .addProtocols("a", "href", "http", "https", "mailto")
+                .addProtocols("img", "src", "http", "https", "data")
+        )
+
         val isDarkMode = isDarkMode()
         val bgColor = if (isDarkMode) "#121212" else "#FFFFFF"
         val textColor = if (isDarkMode) "#E0E0E0" else "#000000"
@@ -364,6 +382,7 @@ class EmailDetailFragment : Fragment() {
             <head>
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <meta name="color-scheme" content="${if (isDarkMode) "dark" else "light"}">
+                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline';">
                 <style>
                     body {
                         font-family: sans-serif;
@@ -410,7 +429,7 @@ class EmailDetailFragment : Fragment() {
                 </style>
             </head>
             <body>
-                $html
+                $sanitized
             </body>
             </html>
         """.trimIndent()

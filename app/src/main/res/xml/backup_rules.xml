@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
-    <exclude domain="sharedpref" path="secure_prefs.xml"/>
-    <exclude domain="database" path="."/>
+    <!-- Exclude encrypted credentials -->
+    <exclude domain="sharedpref" path="secure_email_credentials.xml"/>
+    <exclude domain="sharedpref" path="app_preferences.xml"/>
+
+    <!-- Exclude entire database -->
+    <exclude domain="database" path="email_client_db"/>
+    <exclude domain="database" path="email_client_db-shm"/>
+    <exclude domain="database" path="email_client_db-wal"/>
 </full-backup-content>
