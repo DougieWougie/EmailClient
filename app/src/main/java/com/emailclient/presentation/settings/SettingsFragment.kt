@@ -65,6 +65,9 @@ class SettingsFragment : Fragment() {
             onToggleSync = { accountId, enabled ->
                 viewModel.toggleAccountSync(accountId, enabled)
             },
+            onToggleAutoDownloadImages = { accountId, enabled ->
+                viewModel.toggleAutoDownloadImages(accountId, enabled)
+            },
             onEditAccount = { account ->
                 editAccount(account)
             },

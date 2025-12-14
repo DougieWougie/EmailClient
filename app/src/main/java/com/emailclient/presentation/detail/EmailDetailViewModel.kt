@@ -40,6 +40,15 @@ class EmailDetailViewModel @Inject constructor(
     private val _folders = MutableStateFlow<List<Folder>>(emptyList())
     val folders: StateFlow<List<Folder>> = _folders.asStateFlow()
 
+    private val _imagesLoaded = MutableStateFlow(false)
+    val imagesLoaded: StateFlow<Boolean> = _imagesLoaded.asStateFlow()
+
+    private val _shouldShowLoadImagesButton = MutableStateFlow(false)
+    val shouldShowLoadImagesButton: StateFlow<Boolean> = _shouldShowLoadImagesButton.asStateFlow()
+
+    private val _autoDownloadImagesEnabled = MutableStateFlow(false)
+    val autoDownloadImagesEnabled: StateFlow<Boolean> = _autoDownloadImagesEnabled.asStateFlow()
+
     private var pendingAction: PendingAction? = null
 
     data class PendingAction(
@@ -57,6 +66,7 @@ class EmailDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
+            _imagesLoaded.value = false  // Reset image loading state
 
             try {
                 when (val result = emailRepository.getEmailById(emailId)) {
@@ -67,6 +77,9 @@ class EmailDetailViewModel @Inject constructor(
                         if (!result.data.isRead) {
                             emailRepository.markAsRead(emailId, true)
                         }
+
+                        // Load account settings to determine auto-download preference
+                        loadAccountSettings(result.data.accountId)
                     }
                     is Result.Error -> {
                         _error.value = result.message ?: "Failed to load email"
@@ -221,5 +234,67 @@ class EmailDetailViewModel @Inject constructor(
      */
     fun finalizeAction() {
         pendingAction = null
+    }
+
+    /**
+     * Load account settings to determine auto-download preference
+     */
+    private suspend fun loadAccountSettings(accountId: Long) {
+        when (val result = accountRepository.getAccountById(accountId)) {
+            is Result.Success -> {
+                _autoDownloadImagesEnabled.value = result.data.autoDownloadImages
+                updateLoadImagesButtonVisibility()
+            }
+            is Result.Error -> {
+                // Default to not auto-downloading if we can't fetch settings
+                _autoDownloadImagesEnabled.value = false
+                updateLoadImagesButtonVisibility()
+            }
+            else -> {
+                _autoDownloadImagesEnabled.value = false
+                updateLoadImagesButtonVisibility()
+            }
+        }
+    }
+
+    /**
+     * Determine whether to show the Load Images button
+     */
+    private fun updateLoadImagesButtonVisibility() {
+        val email = _email.value
+        val hasExternalImages = email?.let { hasExternalImages(it) } ?: false
+
+        _shouldShowLoadImagesButton.value =
+            hasExternalImages &&
+            !_autoDownloadImagesEnabled.value &&
+            !_imagesLoaded.value
+    }
+
+    /**
+     * Check if email contains external images
+     */
+    private fun hasExternalImages(email: Email): Boolean {
+        // Only check HTML emails
+        if (!email.isHtml && email.htmlBody == null) {
+            return false
+        }
+
+        val content = email.htmlBody ?: email.body
+
+        // Check for img tags with http/https src (external images)
+        // Using simple string matching to avoid ReDoS
+        return content.contains("<img", ignoreCase = true) &&
+               (content.contains("src=\"http://", ignoreCase = true) ||
+                content.contains("src=\"https://", ignoreCase = true) ||
+                content.contains("src='http://", ignoreCase = true) ||
+                content.contains("src='https://", ignoreCase = true))
+    }
+
+    /**
+     * Load images for current email (temporary, session only)
+     */
+    fun loadImages() {
+        _imagesLoaded.value = true
+        updateLoadImagesButtonVisibility()
     }
 }

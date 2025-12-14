@@ -37,6 +37,9 @@ interface AccountDao {
     @Query("UPDATE accounts SET syncEnabled = :enabled WHERE id = :accountId")
     suspend fun setSyncEnabled(accountId: Long, enabled: Boolean)
 
+    @Query("UPDATE accounts SET autoDownloadImages = :enabled WHERE id = :accountId")
+    suspend fun setAutoDownloadImages(accountId: Long, enabled: Boolean)
+
     @Query("UPDATE accounts SET lastSyncTime = :timestamp WHERE id = :accountId")
     suspend fun updateLastSyncTime(accountId: Long, timestamp: Long)
 

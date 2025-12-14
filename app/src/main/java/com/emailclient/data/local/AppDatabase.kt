@@ -21,7 +21,7 @@ import com.emailclient.data.local.entities.FolderEntity
         EmailEntity::class,
         FolderEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -38,6 +38,13 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(database: SupportSQLiteDatabase) {
                 // Add profileImageUri column to accounts table
                 database.execSQL("ALTER TABLE accounts ADD COLUMN profileImageUri TEXT")
+            }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Add autoDownloadImages column to accounts table
+                database.execSQL("ALTER TABLE accounts ADD COLUMN autoDownloadImages INTEGER NOT NULL DEFAULT 0")
             }
         }
     }

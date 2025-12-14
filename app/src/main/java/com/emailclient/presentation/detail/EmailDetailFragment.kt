@@ -58,6 +58,7 @@ class EmailDetailFragment : Fragment() {
 
         setupMenu()
         setupWebView()
+        setupLoadImagesButton()
         observeViewModel()
 
         // Load email
@@ -163,7 +164,7 @@ class EmailDetailFragment : Fragment() {
                 // Mixed content and safe browsing
                 mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
 
-                // Block network access for privacy and security
+                // Block network access for privacy and security (will be toggled dynamically)
                 blockNetworkImage = true
                 blockNetworkLoads = true
             }
@@ -196,6 +197,30 @@ class EmailDetailFragment : Fragment() {
                     return true // Prevent WebView from loading the URL
                 }
             }
+        }
+    }
+
+    /**
+     * Setup Load Images button
+     */
+    private fun setupLoadImagesButton() {
+        binding.buttonLoadImages.setOnClickListener {
+            viewModel.loadImages()
+        }
+    }
+
+    /**
+     * Enable image loading in WebView
+     */
+    private fun enableImageLoading() {
+        binding.webViewBody.settings.apply {
+            blockNetworkImage = false
+            blockNetworkLoads = false
+        }
+
+        // Reload the current email to show images
+        viewModel.email.value?.let { email ->
+            displayEmail(email, allowExternalImages = true)
         }
     }
 
@@ -293,11 +318,40 @@ class EmailDetailFragment : Fragment() {
                         }
                     }
                 }
+
+                // Observe load images button visibility
+                launch {
+                    viewModel.shouldShowLoadImagesButton.collect { shouldShow ->
+                        binding.cardLoadImages.visibility = if (shouldShow) {
+                            View.VISIBLE
+                        } else {
+                            View.GONE
+                        }
+                    }
+                }
+
+                // Observe image loading state
+                launch {
+                    viewModel.imagesLoaded.collect { loaded ->
+                        if (loaded) {
+                            enableImageLoading()
+                        }
+                    }
+                }
+
+                // Observe auto-download setting
+                launch {
+                    viewModel.autoDownloadImagesEnabled.collect { autoDownload ->
+                        if (autoDownload) {
+                            enableImageLoading()
+                        }
+                    }
+                }
             }
         }
     }
 
-    private fun displayEmail(email: Email) {
+    private fun displayEmail(email: Email, allowExternalImages: Boolean = false) {
         binding.textSubject.text = email.subject
         binding.textFrom.text = email.from.let {
             if (it.personal != null) "${it.personal} <${it.address}>" else it.address
@@ -315,13 +369,14 @@ class EmailDetailFragment : Fragment() {
         android.util.Log.d("EmailDetail", "Displaying email: ${email.subject}")
         android.util.Log.d("EmailDetail", "isHtml flag: ${email.isHtml}, hasHtmlTags: $hasHtmlTags, shouldRenderAsHtml: $shouldRenderAsHtml")
         android.util.Log.d("EmailDetail", "Content preview: ${htmlContent.take(100)}")
+        android.util.Log.d("EmailDetail", "allowExternalImages: $allowExternalImages")
 
         if (shouldRenderAsHtml) {
             // Load HTML content
             android.util.Log.d("EmailDetail", "Rendering as HTML")
             binding.webViewBody.loadDataWithBaseURL(
                 null,
-                wrapHtmlContent(htmlContent),
+                wrapHtmlContent(htmlContent, allowExternalImages),
                 "text/html",
                 "UTF-8",
                 null
@@ -359,7 +414,7 @@ class EmailDetailFragment : Fragment() {
     /**
      * Wrap HTML content with proper styling and sanitization
      */
-    private fun wrapHtmlContent(html: String): String {
+    private fun wrapHtmlContent(html: String, allowExternalImages: Boolean = false): String {
         // Sanitize HTML using JSoup to prevent XSS attacks
         val sanitized = Jsoup.clean(
             html,
@@ -376,13 +431,20 @@ class EmailDetailFragment : Fragment() {
         val textColor = if (isDarkMode) "#E0E0E0" else "#000000"
         val linkColor = if (isDarkMode) "#64B5F6" else "#1976D2"
 
+        // Conditionally allow external images in CSP
+        val imgSrc = if (allowExternalImages) {
+            "img-src http: https: data:"
+        } else {
+            "img-src data:"
+        }
+
         return """
             <!DOCTYPE html>
             <html>
             <head>
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <meta name="color-scheme" content="${if (isDarkMode) "dark" else "light"}">
-                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline';">
+                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; $imgSrc; style-src 'unsafe-inline';">
                 <style>
                     body {
                         font-family: sans-serif;
@@ -419,12 +481,7 @@ class EmailDetailFragment : Fragment() {
                         width: 100%;
                     }
                     th, td {
-                        border: 1px solid ${if (isDarkMode) "#444" else "#ddd"};
                         padding: 8px;
-                        text-align: left;
-                    }
-                    th {
-                        background-color: ${if (isDarkMode) "#2A2A2A" else "#F5F5F5"};
                     }
                 </style>
             </head>

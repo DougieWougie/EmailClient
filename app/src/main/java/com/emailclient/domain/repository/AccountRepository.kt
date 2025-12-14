@@ -25,6 +25,8 @@ interface AccountRepository {
 
     suspend fun setSyncEnabled(accountId: Long, enabled: Boolean): Result<Unit>
 
+    suspend fun setAutoDownloadImages(accountId: Long, enabled: Boolean): Result<Unit>
+
     suspend fun deleteAccount(accountId: Long): Result<Unit>
 
     suspend fun testConnection(account: Account, password: String): Result<Boolean>

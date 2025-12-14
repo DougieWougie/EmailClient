@@ -30,7 +30,8 @@ data class AccountEntity(
     val isDefault: Boolean = false,
     val syncEnabled: Boolean = true,
     val lastSyncTime: Long = 0,
-    val profileImageUri: String? = null
+    val profileImageUri: String? = null,
+    val autoDownloadImages: Boolean = false
 )
 
 data class ServerConfigEntity(
@@ -67,7 +68,8 @@ fun AccountEntity.toDomain(): Account {
         isDefault = isDefault,
         syncEnabled = syncEnabled,
         lastSyncTime = lastSyncTime,
-        profileImageUri = profileImageUri
+        profileImageUri = profileImageUri,
+        autoDownloadImages = autoDownloadImages
     )
 }
 
@@ -97,6 +99,7 @@ fun Account.toEntity(): AccountEntity {
         isDefault = isDefault,
         syncEnabled = syncEnabled,
         lastSyncTime = lastSyncTime,
-        profileImageUri = profileImageUri
+        profileImageUri = profileImageUri,
+        autoDownloadImages = autoDownloadImages
     )
 }

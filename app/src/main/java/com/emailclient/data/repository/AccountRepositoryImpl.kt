@@ -148,6 +148,15 @@ class AccountRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun setAutoDownloadImages(accountId: Long, enabled: Boolean): Result<Unit> {
+        return try {
+            accountDao.setAutoDownloadImages(accountId, enabled)
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Result.Error(e, "Failed to update image download settings")
+        }
+    }
+
     override suspend fun deleteAccount(accountId: Long): Result<Unit> {
         return try {
             // Delete stored credentials

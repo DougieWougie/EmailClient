@@ -113,6 +113,27 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
+     * Toggle auto-download images for an account
+     */
+    fun toggleAutoDownloadImages(accountId: Long, enabled: Boolean) {
+        viewModelScope.launch {
+            when (val result = accountRepository.setAutoDownloadImages(accountId, enabled)) {
+                is Result.Success -> {
+                    // Success - state will update via Flow
+                }
+                is Result.Error -> {
+                    _uiState.value = SettingsUiState.Error(
+                        result.message ?: "Failed to update image download settings"
+                    )
+                }
+                else -> {
+                    _uiState.value = SettingsUiState.Error("Unknown error occurred")
+                }
+            }
+        }
+    }
+
+    /**
      * Trigger manual sync for all accounts
      */
     fun syncNow() {

@@ -17,7 +17,8 @@ data class Account(
     val isDefault: Boolean = false,
     val syncEnabled: Boolean = true,
     val lastSyncTime: Long = 0,
-    val profileImageUri: String? = null
+    val profileImageUri: String? = null,
+    val autoDownloadImages: Boolean = false
 ) : Parcelable
 
 @Parcelize

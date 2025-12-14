@@ -19,6 +19,7 @@ class AccountAdapter(
     private val onAccountClick: (Account) -> Unit,
     private val onSetDefault: (Long) -> Unit,
     private val onToggleSync: (Long, Boolean) -> Unit,
+    private val onToggleAutoDownloadImages: (Long, Boolean) -> Unit,
     private val onEditAccount: (Account) -> Unit,
     private val onDeleteAccount: (Long, String) -> Unit
 ) : ListAdapter<Account, AccountAdapter.AccountViewHolder>(AccountDiffCallback()) {
@@ -71,9 +72,17 @@ class AccountAdapter(
             }
 
             // Sync switch
+            binding.switchSync.setOnCheckedChangeListener(null)
             binding.switchSync.isChecked = account.syncEnabled
             binding.switchSync.setOnCheckedChangeListener { _, isChecked ->
                 onToggleSync(account.id, isChecked)
+            }
+
+            // Auto-download images switch
+            binding.switchAutoDownloadImages.setOnCheckedChangeListener(null)
+            binding.switchAutoDownloadImages.isChecked = account.autoDownloadImages
+            binding.switchAutoDownloadImages.setOnCheckedChangeListener { _, isChecked ->
+                onToggleAutoDownloadImages(account.id, isChecked)
             }
 
             // Click listeners
