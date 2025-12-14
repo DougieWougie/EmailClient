@@ -427,9 +427,21 @@ class EmailDetailFragment : Fragment() {
         )
 
         val isDarkMode = isDarkMode()
-        val bgColor = if (isDarkMode) "#121212" else "#FFFFFF"
-        val textColor = if (isDarkMode) "#E0E0E0" else "#000000"
-        val linkColor = if (isDarkMode) "#64B5F6" else "#1976D2"
+        val bgColor = if (isDarkMode) {
+            getColorHex(R.color.email_webview_dark_background)
+        } else {
+            getColorHex(R.color.email_webview_light_background)
+        }
+        val textColor = if (isDarkMode) {
+            getColorHex(R.color.email_webview_dark_text)
+        } else {
+            getColorHex(R.color.email_webview_light_text)
+        }
+        val linkColor = if (isDarkMode) {
+            getColorHex(R.color.email_webview_dark_link)
+        } else {
+            getColorHex(R.color.email_webview_light_link)
+        }
 
         // Conditionally allow external images in CSP
         val imgSrc = if (allowExternalImages) {
@@ -464,14 +476,14 @@ class EmailDetailFragment : Fragment() {
                         text-decoration: underline;
                     }
                     blockquote {
-                        border-left: 3px solid ${if (isDarkMode) "#555" else "#ccc"};
+                        border-left: 3px solid ${if (isDarkMode) getColorHex(R.color.email_webview_dark_blockquote_border) else getColorHex(R.color.email_webview_light_blockquote_border)};
                         margin-left: 0;
                         padding-left: 16px;
-                        color: ${if (isDarkMode) "#aaa" else "#666"};
+                        color: ${if (isDarkMode) getColorHex(R.color.email_webview_dark_blockquote_text) else getColorHex(R.color.email_webview_light_blockquote_text)};
                     }
                     pre, code {
-                        background-color: ${if (isDarkMode) "#1E1E1E" else "#F5F5F5"};
-                        color: ${if (isDarkMode) "#D4D4D4" else "#333"};
+                        background-color: ${if (isDarkMode) getColorHex(R.color.email_webview_dark_code_bg) else getColorHex(R.color.email_webview_light_code_bg)};
+                        color: ${if (isDarkMode) getColorHex(R.color.email_webview_dark_code_text) else getColorHex(R.color.email_webview_light_code_text)};
                         padding: 4px 8px;
                         border-radius: 4px;
                         overflow-x: auto;
@@ -503,12 +515,28 @@ class EmailDetailFragment : Fragment() {
     }
 
     /**
+     * Get color from resources as hex string for CSS
+     */
+    private fun getColorHex(colorResId: Int): String {
+        val color = androidx.core.content.ContextCompat.getColor(requireContext(), colorResId)
+        return String.format("#%06X", 0xFFFFFF and color)
+    }
+
+    /**
      * Wrap plain text content as HTML
      */
     private fun wrapPlainTextContent(text: String): String {
         val isDarkMode = isDarkMode()
-        val bgColor = if (isDarkMode) "#121212" else "#FFFFFF"
-        val textColor = if (isDarkMode) "#E0E0E0" else "#000000"
+        val bgColor = if (isDarkMode) {
+            getColorHex(R.color.email_webview_dark_background)
+        } else {
+            getColorHex(R.color.email_webview_light_background)
+        }
+        val textColor = if (isDarkMode) {
+            getColorHex(R.color.email_webview_dark_text)
+        } else {
+            getColorHex(R.color.email_webview_light_text)
+        }
 
         val escapedText = text
             .replace("&", "&amp;")

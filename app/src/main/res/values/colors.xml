@@ -1,45 +1,67 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Material 3 Color Palette -->
-    <color name="md_theme_light_primary">#1976D2</color>
+    <!-- Light Theme -->
+    <color name="md_theme_light_primary">#415F91</color>
     <color name="md_theme_light_onPrimary">#FFFFFF</color>
-    <color name="md_theme_light_primaryContainer">#BBDEFB</color>
-    <color name="md_theme_light_onPrimaryContainer">#001D35</color>
+    <color name="md_theme_light_primaryContainer">#D6E3FF</color>
+    <color name="md_theme_light_onPrimaryContainer">#284777</color>
 
-    <color name="md_theme_light_secondary">#0288D1</color>
+    <color name="md_theme_light_secondary">#565F71</color>
     <color name="md_theme_light_onSecondary">#FFFFFF</color>
-    <color name="md_theme_light_secondaryContainer">#B3E5FC</color>
-    <color name="md_theme_light_onSecondaryContainer">#001E2E</color>
+    <color name="md_theme_light_secondaryContainer">#DAE2F9</color>
+    <color name="md_theme_light_onSecondaryContainer">#3E4759</color>
 
-    <color name="md_theme_light_background">#FAFAFA</color>
-    <color name="md_theme_light_onBackground">#1A1C1E</color>
-    <color name="md_theme_light_surface">#FFFFFF</color>
-    <color name="md_theme_light_onSurface">#1A1C1E</color>
+    <color name="md_theme_light_background">#F9F9FF</color>
+    <color name="md_theme_light_onBackground">#191C20</color>
+    <color name="md_theme_light_surface">#F9F9FF</color>
+    <color name="md_theme_light_onSurface">#191C20</color>
 
-    <color name="md_theme_light_error">#B00020</color>
+    <color name="md_theme_light_error">#BA1A1A</color>
     <color name="md_theme_light_onError">#FFFFFF</color>
 
     <!-- Dark Theme -->
-    <color name="md_theme_dark_primary">#000000</color>
-    <color name="md_theme_dark_onPrimary">#003258</color>
-    <color name="md_theme_dark_primaryContainer">#004881</color>
-    <color name="md_theme_dark_onPrimaryContainer">#BBDEFB</color>
+    <color name="md_theme_dark_primary">#AAC7FF</color>
+    <color name="md_theme_dark_onPrimary">#0A305F</color>
+    <color name="md_theme_dark_primaryContainer">#284777</color>
+    <color name="md_theme_dark_onPrimaryContainer">#D6E3FF</color>
 
-    <color name="md_theme_dark_secondary">#81D4FA</color>
-    <color name="md_theme_dark_onSecondary">#00344F</color>
-    <color name="md_theme_dark_secondaryContainer">#004D70</color>
-    <color name="md_theme_dark_onSecondaryContainer">#B3E5FC</color>
+    <color name="md_theme_dark_secondary">#BEC6DC</color>
+    <color name="md_theme_dark_onSecondary">#283141</color>
+    <color name="md_theme_dark_secondaryContainer">#3E4759</color>
+    <color name="md_theme_dark_onSecondaryContainer">#DAE2F9</color>
 
-    <color name="md_theme_dark_background">#121212</color>
-    <color name="md_theme_dark_onBackground">#E1E2E5</color>
-    <color name="md_theme_dark_surface">#1E1E1E</color>
-    <color name="md_theme_dark_onSurface">#E1E2E5</color>
+    <color name="md_theme_dark_background">#111318</color>
+    <color name="md_theme_dark_onBackground">#E2E2E9</color>
+    <color name="md_theme_dark_surface">#111318</color>
+    <color name="md_theme_dark_onSurface">#E2E2E9</color>
 
-    <color name="md_theme_dark_error">#CF6679</color>
-    <color name="md_theme_dark_onError">#000000</color>
+    <color name="md_theme_dark_error">#FFB4AB</color>
+    <color name="md_theme_dark_onError">#690005</color>
 
     <!-- Swipe Action Colors -->
     <color name="swipe_archive_background">#4CAF50</color>  <!-- Green -->
     <color name="swipe_delete_background">#F44336</color>   <!-- Red -->
     <color name="swipe_read_background">#2196F3</color>     <!-- Blue -->
+
+    <!-- Email WebView Colors - Light Mode -->
+    <color name="email_webview_light_background">#FFFFFF</color>
+    <color name="email_webview_light_text">#000000</color>
+    <color name="email_webview_light_link">#1976D2</color>
+    <color name="email_webview_light_code_bg">#F5F5F5</color>
+    <color name="email_webview_light_code_text">#333333</color>
+    <color name="email_webview_light_blockquote_border">#CCCCCC</color>
+    <color name="email_webview_light_blockquote_text">#666666</color>
+    <color name="email_webview_light_table_border">#DDDDDD</color>
+    <color name="email_webview_light_table_header_bg">#F5F5F5</color>
+
+    <!-- Email WebView Colors - Dark Mode -->
+    <color name="email_webview_dark_background">#121212</color>
+    <color name="email_webview_dark_text">#E0E0E0</color>
+    <color name="email_webview_dark_link">#64B5F6</color>
+    <color name="email_webview_dark_code_bg">#1E1E1E</color>
+    <color name="email_webview_dark_code_text">#D4D4D4</color>
+    <color name="email_webview_dark_blockquote_border">#555555</color>
+    <color name="email_webview_dark_blockquote_text">#AAAAAA</color>
+    <color name="email_webview_dark_table_border">#444444</color>
+    <color name="email_webview_dark_table_header_bg">#2A2A2A</color>
 </resources>
