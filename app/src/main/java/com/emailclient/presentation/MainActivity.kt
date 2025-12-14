@@ -1,11 +1,13 @@
 package com.emailclient.presentation
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.transition.Explode
 import android.view.Menu
 import android.view.MenuItem
 import android.view.Window
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.core.os.bundleOf
 import androidx.activity.viewModels
@@ -19,6 +21,8 @@ import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
+import coil.load
+import coil.transform.CircleCropTransformation
 import com.emailclient.R
 import com.emailclient.data.local.AppPreferences
 import com.emailclient.databinding.ActivityMainBinding
@@ -233,9 +237,22 @@ class MainActivity : AppCompatActivity() {
         val headerView = binding.navView.getHeaderView(0)
         val displayNameView = headerView.findViewById<TextView>(R.id.text_account_name)
         val emailView = headerView.findViewById<TextView>(R.id.text_account_email)
+        val avatarView = headerView.findViewById<ImageView>(R.id.image_account_avatar)
 
         displayNameView.text = account?.displayName ?: getString(R.string.no_account)
         emailView.text = account?.email ?: ""
+
+        // Load profile image
+        if (account?.profileImageUri != null) {
+            avatarView.load(Uri.parse(account.profileImageUri)) {
+                crossfade(true)
+                transformations(CircleCropTransformation())
+                placeholder(R.drawable.ic_person)
+                error(R.drawable.ic_person)
+            }
+        } else {
+            avatarView.setImageResource(R.drawable.ic_person)
+        }
     }
 
     private fun showAccountSwitcher() {

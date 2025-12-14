@@ -12,14 +12,23 @@
     android:padding="16dp"
     android:theme="@style/ThemeOverlay.Material3.Dark">
 
-    <ImageView
-        android:id="@+id/image_account_avatar"
+    <com.google.android.material.card.MaterialCardView
         android:layout_width="64dp"
         android:layout_height="64dp"
         android:layout_marginBottom="8dp"
-        android:contentDescription="@string/account_avatar"
-        android:src="@drawable/ic_account_circle"
-        app:tint="?attr/colorOnPrimaryContainer" />
+        app:cardCornerRadius="32dp"
+        app:strokeWidth="2dp"
+        app:strokeColor="?attr/colorOnPrimaryContainer">
+
+        <ImageView
+            android:id="@+id/image_account_avatar"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:contentDescription="@string/account_avatar"
+            android:src="@drawable/ic_person" />
+
+    </com.google.android.material.card.MaterialCardView>
 
     <TextView
         android:id="@+id/text_account_name"

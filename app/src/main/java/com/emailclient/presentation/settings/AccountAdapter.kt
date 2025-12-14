@@ -1,10 +1,14 @@
 package com.emailclient.presentation.settings
 
+import android.net.Uri
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import coil.load
+import coil.transform.CircleCropTransformation
+import com.emailclient.R
 import com.emailclient.databinding.ItemAccountBinding
 import com.emailclient.domain.model.Account
 
@@ -39,6 +43,18 @@ class AccountAdapter(
         fun bind(account: Account) {
             binding.textEmail.text = account.email
             binding.textDisplayName.text = account.displayName
+
+            // Load profile image
+            if (account.profileImageUri != null) {
+                binding.imageProfile.load(Uri.parse(account.profileImageUri)) {
+                    crossfade(true)
+                    transformations(CircleCropTransformation())
+                    placeholder(R.drawable.ic_person)
+                    error(R.drawable.ic_person)
+                }
+            } else {
+                binding.imageProfile.setImageResource(R.drawable.ic_person)
+            }
 
             // Show server info
             binding.textServerInfo.text = buildString {

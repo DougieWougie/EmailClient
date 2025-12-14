@@ -29,7 +29,8 @@ data class AccountEntity(
     val smtpConfig: ServerConfigEntity,
     val isDefault: Boolean = false,
     val syncEnabled: Boolean = true,
-    val lastSyncTime: Long = 0
+    val lastSyncTime: Long = 0,
+    val profileImageUri: String? = null
 )
 
 data class ServerConfigEntity(
@@ -65,7 +66,8 @@ fun AccountEntity.toDomain(): Account {
         ),
         isDefault = isDefault,
         syncEnabled = syncEnabled,
-        lastSyncTime = lastSyncTime
+        lastSyncTime = lastSyncTime,
+        profileImageUri = profileImageUri
     )
 }
 
@@ -94,6 +96,7 @@ fun Account.toEntity(): AccountEntity {
         ),
         isDefault = isDefault,
         syncEnabled = syncEnabled,
-        lastSyncTime = lastSyncTime
+        lastSyncTime = lastSyncTime,
+        profileImageUri = profileImageUri
     )
 }

@@ -36,8 +36,17 @@ class AccountSetupViewModel @Inject constructor(
     private val _editingAccount = MutableStateFlow<Account?>(null)
     val editingAccount: StateFlow<Account?> = _editingAccount.asStateFlow()
 
+    private var profileImageUri: String? = null
+
     val isEditMode: Boolean
         get() = _editingAccount.value != null
+
+    /**
+     * Set profile image URI
+     */
+    fun setProfileImage(uri: String?) {
+        profileImageUri = uri
+    }
 
     /**
      * Load account for editing
@@ -47,6 +56,7 @@ class AccountSetupViewModel @Inject constructor(
             when (val result = accountRepository.getAccountById(accountId)) {
                 is Result.Success -> {
                     _editingAccount.value = result.data
+                    profileImageUri = result.data.profileImageUri
                 }
                 is Result.Error -> {
                     _uiState.value = AccountSetupState.Error(
@@ -141,7 +151,8 @@ class AccountSetupViewModel @Inject constructor(
                     port = smtpPort,
                     username = email,
                     securityType = smtpSecurity
-                )
+                ),
+                profileImageUri = profileImageUri
             )
 
             when (val result = accountRepository.testConnection(account, password)) {
@@ -179,7 +190,8 @@ class AccountSetupViewModel @Inject constructor(
                 val updatedAccount = account.copy(
                     id = editingAccountValue.id,
                     isDefault = editingAccountValue.isDefault,
-                    syncEnabled = editingAccountValue.syncEnabled
+                    syncEnabled = editingAccountValue.syncEnabled,
+                    profileImageUri = profileImageUri ?: editingAccountValue.profileImageUri
                 )
 
                 when (val result = accountRepository.updateAccount(updatedAccount)) {

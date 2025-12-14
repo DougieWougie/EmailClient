@@ -16,7 +16,8 @@ data class Account(
     val smtpConfig: ServerConfig,
     val isDefault: Boolean = false,
     val syncEnabled: Boolean = true,
-    val lastSyncTime: Long = 0
+    val lastSyncTime: Long = 0,
+    val profileImageUri: String? = null
 ) : Parcelable
 
 @Parcelize

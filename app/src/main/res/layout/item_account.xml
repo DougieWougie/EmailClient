@@ -14,14 +14,35 @@
         android:layout_height="wrap_content"
         android:padding="12dp">
 
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardProfileImage"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            app:cardCornerRadius="24dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="?attr/colorOutlineVariant"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent">
+
+            <ImageView
+                android:id="@+id/imageProfile"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:src="@drawable/ic_person"
+                android:contentDescription="Account profile image" />
+
+        </com.google.android.material.card.MaterialCardView>
+
         <TextView
             android:id="@+id/textEmail"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
             android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
             android:textStyle="bold"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="@id/cardProfileImage"
+            app:layout_constraintStart_toEndOf="@id/cardProfileImage"
             app:layout_constraintEnd_toStartOf="@id/chipDefault"
             tools:text="user@example.com" />
 
@@ -40,10 +61,11 @@
             android:id="@+id/textDisplayName"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginStart="12dp"
+            android:layout_marginTop="2dp"
             android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
             app:layout_constraintTop_toBottomOf="@id/textEmail"
-            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintStart_toEndOf="@id/cardProfileImage"
             app:layout_constraintEnd_toEndOf="parent"
             tools:text="John Doe" />
 
@@ -51,11 +73,11 @@
             android:id="@+id/textServerInfo"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="8dp"
             android:textAppearance="@style/TextAppearance.Material3.BodySmall"
             android:textColor="?attr/colorOnSurfaceVariant"
             android:fontFamily="monospace"
-            app:layout_constraintTop_toBottomOf="@id/textDisplayName"
+            app:layout_constraintTop_toBottomOf="@id/cardProfileImage"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             tools:text="IMAP: imap.gmail.com:993\nSMTP: smtp.gmail.com:465" />

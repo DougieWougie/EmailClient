@@ -1,15 +1,19 @@
 package com.emailclient.presentation.setup
 
+import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import coil.load
+import coil.transform.CircleCropTransformation
 import com.emailclient.R
 import com.emailclient.databinding.FragmentManualConfigBinding
 import com.emailclient.domain.model.SecurityType
@@ -27,6 +31,26 @@ class ManualConfigFragment : Fragment() {
     private val binding get() = _binding!!
 
     private val viewModel: AccountSetupViewModel by activityViewModels()
+    private var selectedImageUri: Uri? = null
+
+    private val imagePickerLauncher = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            selectedImageUri = it
+            // Take persistable URI permission
+            try {
+                requireContext().contentResolver.takePersistableUriPermission(
+                    it,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (e: Exception) {
+                // Some URIs don't support persistable permissions
+            }
+            displayProfileImage(it)
+            viewModel.setProfileImage(it.toString())
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -42,10 +66,31 @@ class ManualConfigFragment : Fragment() {
 
         setupSpinners()
         setupButtons()
+        setupImagePicker()
         observeViewModel()
         observeDiscoveredConfig()
         observeEditingAccount()
         setupAutoDetect()
+    }
+
+    private fun setupImagePicker() {
+        binding.buttonSelectImage.setOnClickListener {
+            imagePickerLauncher.launch("image/*")
+        }
+
+        // Also allow clicking on the image itself
+        binding.cardProfileImage.setOnClickListener {
+            imagePickerLauncher.launch("image/*")
+        }
+    }
+
+    private fun displayProfileImage(uri: Uri) {
+        binding.imageProfile.load(uri) {
+            crossfade(true)
+            transformations(CircleCropTransformation())
+            placeholder(R.drawable.ic_person)
+            error(R.drawable.ic_person)
+        }
     }
 
     private fun setupSpinners() {
@@ -307,6 +352,12 @@ class ManualConfigFragment : Fragment() {
                         binding.spinnerSmtpSecurity.setSelection(
                             getSecurityTypePosition(it.smtpConfig.securityType)
                         )
+
+                        // Load profile image if exists
+                        it.profileImageUri?.let { uri ->
+                            selectedImageUri = Uri.parse(uri)
+                            displayProfileImage(selectedImageUri!!)
+                        }
 
                         // Disable email field when editing (can't change email)
                         binding.editTextEmail.isEnabled = false
