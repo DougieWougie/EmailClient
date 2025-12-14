@@ -1,3 +1,5 @@
+<img src="SocialCover.png" />
+
 # Android Email Client
 
 A modern, secure Android email client supporting IMAP/SMTP protocols with multi-account management and comprehensive security hardening.
