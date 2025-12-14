@@ -34,7 +34,6 @@
             android:ellipsize="end"
             android:maxLines="1"
             android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
-            android:textStyle="bold"
             app:layout_constraintEnd_toStartOf="@id/textDate"
             app:layout_constraintStart_toEndOf="@id/checkboxSelect"
             app:layout_constraintTop_toTopOf="parent"

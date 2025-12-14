@@ -79,11 +79,10 @@ class EmailAdapter(
 
                 // Visual indicators
                 root.alpha = if (email.isRead) 0.6f else 1.0f
-                textSubject.setTypeface(
-                    null,
-                    if (email.isRead) android.graphics.Typeface.NORMAL
+                val typeface = if (email.isRead) android.graphics.Typeface.NORMAL
                     else android.graphics.Typeface.BOLD
-                )
+                textFrom.setTypeface(null, typeface)
+                textSubject.setTypeface(null, typeface)
 
                 iconAttachment.visibility =
                     if (email.hasAttachments) android.view.View.VISIBLE
