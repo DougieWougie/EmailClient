@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.transition.Explode
 import android.view.Window
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.navigation.fragment.NavHostFragment
@@ -56,6 +57,21 @@ class AccountSetupActivity : AppCompatActivity() {
             supportActionBar?.setDisplayHomeAsUpEnabled(true)
             supportActionBar?.title = "Edit Account"
             viewModel.loadAccountForEdit(accountId)
+
+            // Navigate directly to manual config fragment for editing, clearing back stack
+            val navHostFragment = supportFragmentManager
+                .findFragmentById(R.id.nav_host_fragment_setup) as NavHostFragment
+            val navController = navHostFragment.navController
+            val navGraph = navController.navInflater.inflate(R.navigation.nav_graph_setup)
+            navGraph.setStartDestination(R.id.manualConfigFragment)
+            navController.graph = navGraph
+
+            // Handle back press in edit mode
+            onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    finish()
+                }
+            })
         } else {
             // Create mode
             supportActionBar?.setDisplayHomeAsUpEnabled(false)
@@ -84,6 +100,13 @@ class AccountSetupActivity : AppCompatActivity() {
     }
 
     override fun onSupportNavigateUp(): Boolean {
+        // In edit mode, back button should finish the activity and return to settings
+        if (viewModel.isEditMode) {
+            finish()
+            return true
+        }
+
+        // In create mode, use normal navigation
         val navHostFragment = supportFragmentManager
             .findFragmentById(R.id.nav_host_fragment_setup) as NavHostFragment
         val navController = navHostFragment.navController
