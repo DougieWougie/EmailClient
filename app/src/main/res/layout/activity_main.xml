@@ -21,10 +21,9 @@
                 android:id="@+id/toolbar"
                 android:layout_width="match_parent"
                 android:layout_height="?attr/actionBarSize"
-                android:theme="@style/ThemeOverlay.Material3.Dark"
-                app:titleTextColor="#FFFFFF"
-                app:subtitleTextColor="#FFFFFF"
-                app:navigationIconTint="#FFFFFF"
+                app:titleTextColor="?attr/colorOnPrimary"
+                app:subtitleTextColor="?attr/colorOnPrimary"
+                app:navigationIconTint="?attr/colorOnPrimary"
                 app:popupTheme="@style/ThemeOverlay.Material3.Light" />
 
         </com.google.android.material.appbar.AppBarLayout>

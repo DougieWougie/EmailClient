@@ -20,7 +20,7 @@
     <color name="md_theme_light_onError">#FFFFFF</color>
 
     <!-- Dark Theme -->
-    <color name="md_theme_dark_primary">#90CAF9</color>
+    <color name="md_theme_dark_primary">#000000</color>
     <color name="md_theme_dark_onPrimary">#003258</color>
     <color name="md_theme_dark_primaryContainer">#004881</color>
     <color name="md_theme_dark_onPrimaryContainer">#BBDEFB</color>
