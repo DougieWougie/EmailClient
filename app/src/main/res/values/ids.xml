@@ -2,6 +2,7 @@
 <resources>
     <!-- Navigation Drawer Menu Item IDs -->
     <item name="group_folders" type="id"/>
+    <item name="nav_switch_account" type="id"/>
     <item name="nav_settings" type="id"/>
     <item name="nav_folder_management" type="id"/>
 </resources>

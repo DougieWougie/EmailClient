@@ -4,9 +4,13 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.transition.Explode
+import android.transition.Fade
+import android.transition.TransitionManager
+import android.view.HapticFeedbackConstants
 import android.view.Menu
 import android.view.MenuItem
 import android.view.Window
+import androidx.interpolator.view.animation.FastOutSlowInInterpolator
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.core.os.bundleOf
@@ -31,7 +35,9 @@ import com.emailclient.domain.model.Folder
 import com.emailclient.domain.model.FolderType
 import com.emailclient.presentation.setup.AccountSetupActivity
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -41,6 +47,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var appBarConfiguration: AppBarConfiguration
     private val viewModel: MainViewModel by viewModels()
+    private var chevronIcon: ImageView? = null
+    private var previousAccountId: Long? = null
 
     @Inject
     lateinit var appPreferences: AppPreferences
@@ -181,10 +189,16 @@ class MainActivity : AppCompatActivity() {
             isEnabled = false
         }
 
-        menu.add(Menu.NONE, R.id.nav_settings, 101, R.string.nav_settings)
+        // Add Switch Account menu item (only if multiple accounts)
+        if (viewModel.allAccounts.value.size > 1) {
+            menu.add(Menu.NONE, R.id.nav_switch_account, 101, R.string.nav_switch_account)
+                .setIcon(R.drawable.ic_person)
+        }
+
+        menu.add(Menu.NONE, R.id.nav_settings, 102, R.string.nav_settings)
             .setIcon(android.R.drawable.ic_menu_manage)
 
-        menu.add(Menu.NONE, R.id.nav_folder_management, 102, R.string.nav_folder_management)
+        menu.add(Menu.NONE, R.id.nav_folder_management, 103, R.string.nav_folder_management)
             .setIcon(R.drawable.ic_folder)
     }
 
@@ -204,6 +218,10 @@ class MainActivity : AppCompatActivity() {
         val navController = findNavController(R.id.nav_host_fragment)
 
         when (menuItem.itemId) {
+            R.id.nav_switch_account -> {
+                showAccountSwitcher()
+                return // Don't close drawer, dialog will handle it
+            }
             R.id.nav_settings -> {
                 navController.navigate(R.id.settingsFragment)
             }
@@ -228,9 +246,35 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupDrawerHeader() {
         val headerView = binding.navView.getHeaderView(0)
+        chevronIcon = headerView.findViewById(R.id.icon_expand_chevron)
+
         headerView.setOnClickListener {
+            animateChevronRotation(expand = true)
             showAccountSwitcher()
         }
+
+        // Observe account count to show/hide chevron
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.allAccounts.collect { accounts ->
+                    chevronIcon?.visibility = if (accounts.size > 1) {
+                        android.view.View.VISIBLE
+                    } else {
+                        android.view.View.GONE
+                    }
+                }
+            }
+        }
+    }
+
+    private fun animateChevronRotation(expand: Boolean) {
+        if (!appPreferences.areAnimationsEnabled()) return
+
+        chevronIcon?.animate()
+            ?.rotation(if (expand) 180f else 0f)
+            ?.setDuration(200)
+            ?.setInterpolator(FastOutSlowInInterpolator())
+            ?.start()
     }
 
     private fun updateDrawerHeader(account: Account?) {
@@ -239,13 +283,52 @@ class MainActivity : AppCompatActivity() {
         val emailView = headerView.findViewById<TextView>(R.id.text_account_email)
         val avatarView = headerView.findViewById<ImageView>(R.id.image_account_avatar)
 
-        displayNameView.text = account?.displayName ?: getString(R.string.no_account)
-        emailView.text = account?.email ?: ""
+        val animationsEnabled = appPreferences.areAnimationsEnabled()
+        val isAccountSwitch = previousAccountId != null && previousAccountId != account?.id
 
-        // Load profile image
+        if (animationsEnabled && isAccountSwitch) {
+            // Animate text changes
+            displayNameView.animate()
+                .alpha(0f)
+                .setDuration(150)
+                .withEndAction {
+                    displayNameView.text = account?.displayName ?: getString(R.string.no_account)
+                    displayNameView.animate().alpha(1f).setDuration(150).start()
+                }
+                .start()
+
+            emailView.animate()
+                .alpha(0f)
+                .setDuration(150)
+                .withEndAction {
+                    emailView.text = account?.email ?: ""
+                    emailView.animate().alpha(1f).setDuration(150).start()
+                }
+                .start()
+
+            // Add subtle scale animation to avatar
+            avatarView.scaleX = 0.95f
+            avatarView.scaleY = 0.95f
+            avatarView.animate()
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(300)
+                .setInterpolator(FastOutSlowInInterpolator())
+                .start()
+        } else {
+            // No animation - instant update
+            displayNameView.text = account?.displayName ?: getString(R.string.no_account)
+            emailView.text = account?.email ?: ""
+        }
+
+        // Load profile image with animation
         if (account?.profileImageUri != null) {
             avatarView.load(Uri.parse(account.profileImageUri)) {
-                crossfade(true)
+                if (animationsEnabled && isAccountSwitch) {
+                    crossfade(500)
+                } else {
+                    crossfade(true)
+                }
                 transformations(CircleCropTransformation())
                 placeholder(R.drawable.ic_person)
                 error(R.drawable.ic_person)
@@ -253,13 +336,27 @@ class MainActivity : AppCompatActivity() {
         } else {
             avatarView.setImageResource(R.drawable.ic_person)
         }
+
+        // Update previous account ID for next comparison
+        previousAccountId = account?.id
     }
 
     private fun showAccountSwitcher() {
         val accounts = viewModel.allAccounts.value
         if (accounts.size <= 1) {
             // Only one account, nothing to switch
+            animateChevronRotation(expand = false)
+            Snackbar.make(
+                binding.root,
+                "Add another account in Settings to switch between accounts",
+                Snackbar.LENGTH_SHORT
+            ).show()
             return
+        }
+
+        // Add haptic feedback if animations enabled
+        if (appPreferences.areAnimationsEnabled()) {
+            binding.navView.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
         }
 
         val accountDisplays = accounts.map { "${it.displayName}\n${it.email}" }.toTypedArray()
@@ -272,13 +369,43 @@ class MainActivity : AppCompatActivity() {
                 val selectedAccount = accounts[which]
                 viewModel.switchAccount(selectedAccount.id)
 
-                // Navigate to inbox of new account
-                findNavController(R.id.nav_host_fragment).navigate(R.id.inboxFragment)
+                // Animate drawer content refresh
+                if (appPreferences.areAnimationsEnabled()) {
+                    TransitionManager.beginDelayedTransition(
+                        binding.navView,
+                        Fade().apply { duration = 200 }
+                    )
+                }
+
+                // Navigate to inbox with slight delay for animation
+                lifecycleScope.launch {
+                    if (appPreferences.areAnimationsEnabled()) {
+                        delay(200)
+                    }
+                    findNavController(R.id.nav_host_fragment).navigate(R.id.inboxFragment)
+
+                    // Show confirmation
+                    delay(300)
+                    showAccountSwitchConfirmation(selectedAccount)
+                }
 
                 dialog.dismiss()
                 binding.drawerLayout.closeDrawer(GravityCompat.START)
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton("Cancel") { _, _ ->
+                animateChevronRotation(expand = false)
+            }
+            .setOnDismissListener {
+                animateChevronRotation(expand = false)
+            }
             .show()
+    }
+
+    private fun showAccountSwitchConfirmation(account: Account) {
+        Snackbar.make(
+            binding.root,
+            getString(R.string.switched_to_account, account.displayName),
+            Snackbar.LENGTH_SHORT
+        ).show()
     }
 }

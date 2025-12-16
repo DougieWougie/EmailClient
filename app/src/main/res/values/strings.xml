@@ -16,8 +16,11 @@
     <string name="drawer_open">Open navigation drawer</string>
     <string name="drawer_close">Close navigation drawer</string>
     <string name="switch_account">Switch Account</string>
+    <string name="nav_switch_account">Switch Account</string>
+    <string name="expand_account_switcher">Expand account switcher</string>
     <string name="no_account">No Account</string>
     <string name="account_avatar">Account avatar</string>
+    <string name="switched_to_account">Switched to %s</string>
 
     <!-- Common Actions -->
     <string name="action_compose">Compose</string>
