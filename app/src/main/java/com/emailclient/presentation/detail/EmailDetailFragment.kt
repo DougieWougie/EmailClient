@@ -173,8 +173,8 @@ class EmailDetailFragment : Fragment() {
                 setSupportMultipleWindows(false)
 
                 // Display settings
-                loadWithOverviewMode = true
-                useWideViewPort = true
+                loadWithOverviewMode = false
+                useWideViewPort = false
                 builtInZoomControls = false
                 displayZoomControls = false
 
@@ -509,7 +509,7 @@ class EmailDetailFragment : Fragment() {
                     body {
                         font-family: sans-serif;
                         font-size: 14px;
-                        margin: 16px;
+                        margin: 0;
                         padding: 0;
                         word-wrap: break-word;
                         background-color: $bgColor;
@@ -538,10 +538,13 @@ class EmailDetailFragment : Fragment() {
                     }
                     table {
                         border-collapse: collapse;
-                        width: 100%;
+                        max-width: 100%;
                     }
                     th, td {
                         padding: 8px;
+                    }
+                    * {
+                        max-width: 100%;
                     }
                 </style>
             </head>
@@ -602,7 +605,7 @@ class EmailDetailFragment : Fragment() {
                     body {
                         font-family: monospace;
                         font-size: 14px;
-                        margin: 16px;
+                        margin: 0;
                         padding: 0;
                         white-space: pre-wrap;
                         word-wrap: break-word;
