@@ -39,6 +39,7 @@ class InboxViewModel @Inject constructor(
     private val _showReadEmails = MutableStateFlow(true)
     val showReadEmails: StateFlow<Boolean> = _showReadEmails.asStateFlow()
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val emails: StateFlow<List<Email>> = _showReadEmails
         .flatMapLatest { showRead ->
             _allEmails.map { emailList ->

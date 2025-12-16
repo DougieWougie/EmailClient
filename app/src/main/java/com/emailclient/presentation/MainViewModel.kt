@@ -58,6 +58,7 @@ class MainViewModel @Inject constructor(
     /**
      * Folders for current account
      */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val folders: StateFlow<List<Folder>> = currentAccount
         .filterNotNull()
         .flatMapLatest { account ->

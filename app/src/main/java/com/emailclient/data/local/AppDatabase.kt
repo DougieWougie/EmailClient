@@ -35,16 +35,16 @@ abstract class AppDatabase : RoomDatabase() {
         const val DATABASE_NAME = "email_client_db"
 
         val MIGRATION_1_2 = object : Migration(1, 2) {
-            override fun migrate(database: SupportSQLiteDatabase) {
+            override fun migrate(db: SupportSQLiteDatabase) {
                 // Add profileImageUri column to accounts table
-                database.execSQL("ALTER TABLE accounts ADD COLUMN profileImageUri TEXT")
+                db.execSQL("ALTER TABLE accounts ADD COLUMN profileImageUri TEXT")
             }
         }
 
         val MIGRATION_2_3 = object : Migration(2, 3) {
-            override fun migrate(database: SupportSQLiteDatabase) {
+            override fun migrate(db: SupportSQLiteDatabase) {
                 // Add autoDownloadImages column to accounts table
-                database.execSQL("ALTER TABLE accounts ADD COLUMN autoDownloadImages INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE accounts ADD COLUMN autoDownloadImages INTEGER NOT NULL DEFAULT 0")
             }
         }
     }

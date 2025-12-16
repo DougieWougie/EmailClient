@@ -193,7 +193,7 @@ class EmailDetailFragment : Fragment() {
                     // Adjust height to fit content
                     view?.evaluateJavascript(
                         "(function() { return document.body.scrollHeight; })();"
-                    ) { height ->
+                    ) { _ ->
                         // Height will be returned as string, parse and update layout
                     }
                 }

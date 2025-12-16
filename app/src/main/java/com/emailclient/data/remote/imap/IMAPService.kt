@@ -297,7 +297,6 @@ class IMAPService @Inject constructor() {
         }
 
         val isHtml = htmlBody != null
-        val body = htmlBody ?: textBody
 
         return Triple(textBody, htmlBody, isHtml)
     }
@@ -351,7 +350,6 @@ class IMAPService @Inject constructor() {
         for (i in 0 until multipart.count) {
             val bodyPart = multipart.getBodyPart(i)
             val disposition = bodyPart.disposition?.lowercase()
-            val contentType = bodyPart.contentType.lowercase()
 
             when {
                 // Check for attachment disposition

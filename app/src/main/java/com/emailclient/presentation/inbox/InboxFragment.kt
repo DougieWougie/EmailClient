@@ -94,7 +94,7 @@ class InboxFragment : Fragment() {
         // Observe toggle state to update icon
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.showReadEmails.collect { showingAll ->
+                viewModel.showReadEmails.collect { _ ->
                     requireActivity().invalidateOptionsMenu()
                 }
             }

@@ -24,13 +24,6 @@ android {
         manifestPlaceholders = [
             'appAuthRedirectScheme': 'com.emailclient'
         ]
-
-        // Room schema export
-        kapt {
-            arguments {
-                arg("room.schemaLocation", "$projectDir/schemas")
-            }
-        }
     }
 
     buildTypes {
@@ -52,7 +45,7 @@ android {
         jvmTarget = '17'
         freeCompilerArgs += [
             "-Xjvm-default=all",
-            "-Xopt-in=kotlin.RequiresOptIn"
+            "-opt-in=kotlin.RequiresOptIn"
         ]
     }
 
@@ -61,7 +54,7 @@ android {
             jvmTarget = "17"
             freeCompilerArgs += [
                 "-Xjvm-default=all",
-                "-Xopt-in=kotlin.RequiresOptIn"
+                "-opt-in=kotlin.RequiresOptIn"
             ]
         }
     }
@@ -173,6 +166,11 @@ dependencies {
 // Allow references to generated code
 kapt {
     correctErrorTypes true
+
+    // Room schema export location
+    arguments {
+        arg("room.schemaLocation", "$projectDir/schemas")
+    }
 
     // Add JVM arguments for Java 17+ compatibility
     javacOptions {
