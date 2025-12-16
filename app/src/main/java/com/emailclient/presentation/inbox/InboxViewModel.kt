@@ -13,9 +13,13 @@ import com.emailclient.presentation.common.PendingSwipeAction
 import com.emailclient.util.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -30,8 +34,22 @@ class InboxViewModel @Inject constructor(
     private val appPreferences: AppPreferences
 ) : ViewModel() {
 
-    private val _emails = MutableStateFlow<List<Email>>(emptyList())
-    val emails: StateFlow<List<Email>> = _emails.asStateFlow()
+    private val _allEmails = MutableStateFlow<List<Email>>(emptyList())
+
+    private val _showReadEmails = MutableStateFlow(true)
+    val showReadEmails: StateFlow<Boolean> = _showReadEmails.asStateFlow()
+
+    val emails: StateFlow<List<Email>> = _showReadEmails
+        .flatMapLatest { showRead ->
+            _allEmails.map { emailList ->
+                if (showRead) emailList else emailList.filter { !it.isRead }
+            }
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -89,7 +107,7 @@ class InboxViewModel @Inject constructor(
 
                         // Load emails from that folder
                         emailRepository.getEmailsByFolder(inbox.id).collect { emails ->
-                            _emails.value = emails
+                            _allEmails.value = emails
                         }
                     }
                     is Result.Error -> {
@@ -144,6 +162,10 @@ class InboxViewModel @Inject constructor(
         }
     }
 
+    fun toggleReadEmailsVisibility() {
+        _showReadEmails.value = !_showReadEmails.value
+    }
+
     fun markAsRead(emailId: String) {
         viewModelScope.launch {
             emailRepository.markAsRead(emailId, true)
@@ -183,7 +205,7 @@ class InboxViewModel @Inject constructor(
     }
 
     fun selectAllEmails() {
-        _selectedEmailIds.value = _emails.value.map { it.id }.toSet()
+        _selectedEmailIds.value = _allEmails.value.map { it.id }.toSet()
     }
 
     fun deselectAllEmails() {
@@ -338,7 +360,7 @@ class InboxViewModel @Inject constructor(
         if (action == SwipeAction.NONE) return
 
         viewModelScope.launch {
-            val email = _emails.value.find { it.id == emailId } ?: return@launch
+            val email = _allEmails.value.find { it.id == emailId } ?: return@launch
 
             // Store for undo
             pendingSwipeAction = PendingSwipeAction(

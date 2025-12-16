@@ -32,6 +32,9 @@
     <string name="action_forward">Forward</string>
     <string name="action_refresh">Refresh</string>
     <string name="action_search">Search</string>
+    <string name="toggle_read_emails">Toggle read emails visibility</string>
+    <string name="showing_all_emails">Showing all emails</string>
+    <string name="showing_unread_only">Showing unread emails only</string>
 
     <!-- Image Loading -->
     <string name="load_images_button">Load Images</string>

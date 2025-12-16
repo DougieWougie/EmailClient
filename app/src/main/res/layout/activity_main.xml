@@ -15,13 +15,15 @@
         <com.google.android.material.appbar.AppBarLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="?attr/colorPrimary"
+            android:background="?attr/colorSurface"
+            android:theme="@style/ThemeOverlay.Material3.Dark"
             app:elevation="4dp">
 
             <com.google.android.material.appbar.MaterialToolbar
                 android:id="@+id/toolbar"
                 android:layout_width="match_parent"
                 android:layout_height="?attr/actionBarSize"
+                android:background="?attr/colorPrimary"
                 app:titleTextColor="?attr/colorOnPrimary"
                 app:subtitleTextColor="?attr/colorOnPrimary"
                 app:navigationIconTint="?attr/colorOnPrimary"

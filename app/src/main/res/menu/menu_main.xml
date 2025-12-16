@@ -3,9 +3,10 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <item
-        android:id="@+id/action_settings"
-        android:title="Settings"
-        android:icon="@android:drawable/ic_menu_preferences"
-        app:showAsAction="ifRoom" />
+        android:id="@+id/action_toggle_read"
+        android:title="@string/toggle_read_emails"
+        android:icon="@drawable/ic_mail_open"
+        app:showAsAction="always"
+        app:iconTint="?attr/colorOnPrimary" />
 
 </menu>

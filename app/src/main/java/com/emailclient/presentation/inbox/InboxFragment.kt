@@ -4,9 +4,11 @@ import android.os.Bundle
 import android.view.ActionMode
 import android.view.LayoutInflater
 import android.view.Menu
+import android.view.MenuInflater
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.view.MenuProvider
 import androidx.activity.addCallback
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -63,10 +65,51 @@ class InboxFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        setupMenu()
         setupRecyclerView()
         setupSwipeRefresh()
         setupFab()
         observeViewModel()
+    }
+
+    private fun setupMenu() {
+        requireActivity().addMenuProvider(object : MenuProvider {
+            override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
+                menuInflater.inflate(R.menu.menu_main, menu)
+                // Update icon based on current state
+                updateToggleIcon(menu)
+            }
+
+            override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
+                return when (menuItem.itemId) {
+                    R.id.action_toggle_read -> {
+                        viewModel.toggleReadEmailsVisibility()
+                        true
+                    }
+                    else -> false
+                }
+            }
+        }, viewLifecycleOwner, Lifecycle.State.RESUMED)
+
+        // Observe toggle state to update icon
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.showReadEmails.collect { showingAll ->
+                    requireActivity().invalidateOptionsMenu()
+                }
+            }
+        }
+    }
+
+    private fun updateToggleIcon(menu: Menu) {
+        val toggleItem = menu.findItem(R.id.action_toggle_read)
+        toggleItem?.icon = if (viewModel.showReadEmails.value) {
+            // Showing all emails - use open envelope
+            requireContext().getDrawable(R.drawable.ic_mail_open)
+        } else {
+            // Showing unread only - use closed envelope
+            requireContext().getDrawable(R.drawable.ic_mail)
+        }
     }
 
     private fun setupRecyclerView() {
