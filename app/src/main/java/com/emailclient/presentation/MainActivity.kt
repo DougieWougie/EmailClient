@@ -312,7 +312,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Load profile image with animation
-        if (account?.profileImageUri != null) {
+        if (account?.profileImageUri != null && account.profileImageUri.isNotEmpty()) {
             avatarView.load(Uri.parse(account.profileImageUri)) {
                 if (animationsEnabled && isAccountSwitch) {
                     crossfade(500)
@@ -324,7 +324,15 @@ class MainActivity : AppCompatActivity() {
                 error(R.drawable.ic_person)
             }
         } else {
-            avatarView.setImageResource(R.drawable.ic_person)
+            // No profile image - set default icon
+            if (animationsEnabled && isAccountSwitch) {
+                avatarView.load(R.drawable.ic_person) {
+                    crossfade(500)
+                    transformations(CircleCropTransformation())
+                }
+            } else {
+                avatarView.setImageResource(R.drawable.ic_person)
+            }
         }
 
         // Update previous account ID for next comparison
