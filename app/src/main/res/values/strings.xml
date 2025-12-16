@@ -63,4 +63,17 @@
     <string name="empty_sent">No sent emails</string>
     <string name="empty_drafts">No drafts</string>
     <string name="empty_search">No results found</string>
+
+    <!-- Attachments -->
+    <string name="attach_files">Attach Files</string>
+    <string name="attachment_icon">Attachment icon</string>
+    <string name="download_attachment">Download</string>
+    <string name="open_attachment">Open</string>
+    <string name="remove_attachment">Remove</string>
+    <string name="downloading">Downloading…</string>
+    <string name="download_failed">Download failed</string>
+    <string name="no_app_to_open">No app found to open this file</string>
+    <string name="attachment_too_large">Attachment too large (max 25 MB)</string>
+    <string name="total_size_exceeded">Total attachment size exceeds 50 MB</string>
+    <string name="file_type_not_allowed">File type not allowed</string>
 </resources>

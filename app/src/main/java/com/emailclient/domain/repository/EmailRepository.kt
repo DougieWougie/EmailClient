@@ -30,8 +30,14 @@ interface EmailRepository {
         bcc: List<String> = emptyList(),
         subject: String,
         body: String,
-        isHtml: Boolean = false
+        isHtml: Boolean = false,
+        attachmentUris: List<android.net.Uri> = emptyList()
     ): Result<Unit>
+
+    suspend fun downloadAttachment(
+        emailId: String,
+        attachmentId: String
+    ): Result<java.io.File>
 
     suspend fun markAsRead(emailId: String, isRead: Boolean): Result<Unit>
 

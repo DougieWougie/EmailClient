@@ -4,18 +4,32 @@ import com.emailclient.domain.model.Account
 import com.emailclient.domain.model.SecurityType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.util.*
+import javax.activation.DataHandler
+import javax.activation.FileDataSource
 import javax.inject.Inject
 import javax.inject.Singleton
 import javax.mail.*
 import javax.mail.internet.InternetAddress
+import javax.mail.internet.MimeBodyPart
 import javax.mail.internet.MimeMessage
+import javax.mail.internet.MimeMultipart
 
 /**
  * Service for SMTP email sending using JavaMail
  */
 @Singleton
 class SMTPService @Inject constructor() {
+
+    /**
+     * Data class for attachment information
+     */
+    data class AttachmentData(
+        val fileName: String,
+        val mimeType: String,
+        val file: File
+    )
 
     /**
      * Send an email via SMTP
@@ -28,11 +42,12 @@ class SMTPService @Inject constructor() {
         bcc: List<String> = emptyList(),
         subject: String,
         body: String,
-        isHtml: Boolean = false
+        isHtml: Boolean = false,
+        attachments: List<AttachmentData> = emptyList()
     ): Boolean = withContext(Dispatchers.IO) {
         try {
             val session = createSession(account, password)
-            val message = createMessage(session, account, to, cc, bcc, subject, body, isHtml)
+            val message = createMessage(session, account, to, cc, bcc, subject, body, isHtml, attachments)
 
             Transport.send(message)
             true
@@ -129,7 +144,8 @@ class SMTPService @Inject constructor() {
         bcc: List<String>,
         subject: String,
         body: String,
-        isHtml: Boolean
+        isHtml: Boolean,
+        attachments: List<AttachmentData>
     ): Message {
         val message = MimeMessage(session)
 
@@ -163,11 +179,37 @@ class SMTPService @Inject constructor() {
         // Subject
         message.subject = subject
 
-        // Body
-        if (isHtml) {
-            message.setContent(body, "text/html; charset=utf-8")
+        // Body and attachments
+        if (attachments.isEmpty()) {
+            // Simple message without attachments
+            if (isHtml) {
+                message.setContent(body, "text/html; charset=utf-8")
+            } else {
+                message.setText(body, "utf-8")
+            }
         } else {
-            message.setText(body, "utf-8")
+            // Multipart message with attachments
+            val multipart = MimeMultipart()
+
+            // Body part
+            val bodyPart = MimeBodyPart()
+            if (isHtml) {
+                bodyPart.setContent(body, "text/html; charset=utf-8")
+            } else {
+                bodyPart.setText(body, "utf-8")
+            }
+            multipart.addBodyPart(bodyPart)
+
+            // Attachment parts
+            attachments.forEach { attachment ->
+                val attachmentPart = MimeBodyPart()
+                val dataSource = FileDataSource(attachment.file)
+                attachmentPart.dataHandler = DataHandler(dataSource)
+                attachmentPart.fileName = attachment.fileName
+                multipart.addBodyPart(attachmentPart)
+            }
+
+            message.setContent(multipart)
         }
 
         // Sent date

@@ -1,5 +1,8 @@
 package com.emailclient.data.repository
 
+import android.content.Context
+import android.net.Uri
+import android.provider.OpenableColumns
 import com.emailclient.data.local.CredentialManager
 import com.emailclient.data.local.dao.AccountDao
 import com.emailclient.data.local.dao.EmailDao
@@ -11,21 +14,31 @@ import com.emailclient.data.remote.smtp.SMTPService
 import com.emailclient.domain.model.Email
 import com.emailclient.domain.repository.EmailRepository
 import com.emailclient.util.Result
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.io.File
+import java.util.UUID
 import javax.inject.Inject
 
 /**
  * Implementation of EmailRepository with IMAP/SMTP support
  */
 class EmailRepositoryImpl @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val emailDao: EmailDao,
     private val accountDao: AccountDao,
     private val folderDao: FolderDao,
     private val credentialManager: CredentialManager,
     private val imapService: IMAPService,
-    private val smtpService: SMTPService
+    private val smtpService: SMTPService,
+    private val attachmentStorageManager: com.emailclient.data.local.AttachmentStorageManager
 ) : EmailRepository {
+
+    companion object {
+        private const val MAX_ATTACHMENT_SIZE = 25 * 1024 * 1024L // 25 MB
+        private const val MAX_TOTAL_ATTACHMENT_SIZE = 50 * 1024 * 1024L // 50 MB
+    }
 
     override fun getEmailsByFolder(folderId: Long): Flow<List<Email>> {
         return emailDao.getEmailsByFolder(folderId).map { entities ->
@@ -124,7 +137,8 @@ class EmailRepositoryImpl @Inject constructor(
         bcc: List<String>,
         subject: String,
         body: String,
-        isHtml: Boolean
+        isHtml: Boolean,
+        attachmentUris: List<Uri>
     ): Result<Unit> {
         return try {
             // Get account and credentials
@@ -136,21 +150,209 @@ class EmailRepositoryImpl @Inject constructor(
 
             val account = accountEntity.toDomain()
 
-            // Send email via SMTP
-            smtpService.sendEmail(
-                account = account,
-                password = password,
-                to = to,
-                cc = cc,
-                bcc = bcc,
-                subject = subject,
-                body = body,
-                isHtml = isHtml
-            )
+            // Process attachment URIs to files
+            val attachmentData = mutableListOf<SMTPService.AttachmentData>()
+            val tempFiles = mutableListOf<File>()
+            var totalSize = 0L
 
-            Result.Success(Unit)
+            try {
+                attachmentUris.forEach { uri ->
+                    // Get file metadata
+                    val fileName = getFileNameFromUri(uri) ?: "attachment"
+                    val mimeType = getMimeTypeFromUri(uri) ?: "application/octet-stream"
+                    val fileSize = getFileSizeFromUri(uri)
+
+                    // Validate file size
+                    if (fileSize > MAX_ATTACHMENT_SIZE) {
+                        return Result.Error(
+                            Exception("Attachment '$fileName' exceeds maximum size of 25 MB")
+                        )
+                    }
+
+                    totalSize += fileSize
+                    if (totalSize > MAX_TOTAL_ATTACHMENT_SIZE) {
+                        return Result.Error(
+                            Exception("Total attachment size exceeds maximum of 50 MB")
+                        )
+                    }
+
+                    // Validate file type
+                    if (!isAllowedFileType(fileName, mimeType)) {
+                        return Result.Error(
+                            Exception("File type not allowed: $fileName")
+                        )
+                    }
+
+                    // Copy to temp file
+                    val tempFile = File(
+                        context.cacheDir,
+                        "compose_attachments/${UUID.randomUUID()}_$fileName"
+                    )
+                    tempFile.parentFile?.mkdirs()
+
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        tempFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    } ?: return Result.Error(Exception("Failed to read attachment: $fileName"))
+
+                    tempFiles.add(tempFile)
+                    attachmentData.add(
+                        SMTPService.AttachmentData(fileName, mimeType, tempFile)
+                    )
+                }
+
+                // Send email via SMTP with attachments
+                smtpService.sendEmail(
+                    account = account,
+                    password = password,
+                    to = to,
+                    cc = cc,
+                    bcc = bcc,
+                    subject = subject,
+                    body = body,
+                    isHtml = isHtml,
+                    attachments = attachmentData
+                )
+
+                Result.Success(Unit)
+            } finally {
+                // Cleanup temp files
+                tempFiles.forEach { it.delete() }
+            }
         } catch (e: Exception) {
             Result.Error(e, e.message ?: "Failed to send email")
+        }
+    }
+
+    /**
+     * Get filename from URI
+     */
+    private fun getFileNameFromUri(uri: Uri): String? {
+        return context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (cursor.moveToFirst() && nameIndex >= 0) {
+                cursor.getString(nameIndex)
+            } else {
+                null
+            }
+        }
+    }
+
+    /**
+     * Get MIME type from URI
+     */
+    private fun getMimeTypeFromUri(uri: Uri): String? {
+        return context.contentResolver.getType(uri)
+    }
+
+    /**
+     * Get file size from URI
+     */
+    private fun getFileSizeFromUri(uri: Uri): Long {
+        return context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+            if (cursor.moveToFirst() && sizeIndex >= 0) {
+                cursor.getLong(sizeIndex)
+            } else {
+                0L
+            }
+        } ?: 0L
+    }
+
+    /**
+     * Check if file type is allowed
+     */
+    private fun isAllowedFileType(fileName: String, mimeType: String): Boolean {
+        val extension = fileName.substringAfterLast('.', "").lowercase()
+
+        // Block dangerous file types
+        val blockedExtensions = setOf(
+            "exe", "bat", "sh", "app", "deb", "rpm", "apk",
+            "msi", "dll", "scr", "vbs", "js", "jar", "com",
+            "cmd", "ps1", "psm1"
+        )
+
+        if (extension in blockedExtensions) return false
+
+        // Block executable MIME types
+        val blockedMimeTypes = setOf(
+            "application/x-executable",
+            "application/x-msdownload",
+            "application/x-sh",
+            "application/x-bat"
+        )
+
+        if (mimeType in blockedMimeTypes) return false
+
+        return true
+    }
+
+    override suspend fun downloadAttachment(
+        emailId: String,
+        attachmentId: String
+    ): Result<java.io.File> {
+        return try {
+            // Get email from database
+            val emailEntity = emailDao.getEmailById(emailId.toLong())
+                ?: return Result.Error(Exception("Email not found"))
+            val email = emailEntity.toDomain()
+
+            // Find attachment in email.attachments list
+            val attachmentIndex = email.attachments.indexOfFirst { it.id == attachmentId }
+            if (attachmentIndex < 0) {
+                return Result.Error(Exception("Attachment not found"))
+            }
+            val attachment = email.attachments[attachmentIndex]
+
+            // Check if already downloaded
+            val existingFile = attachmentStorageManager.getAttachmentFile(emailId, attachmentId)
+            if (existingFile?.exists() == true) {
+                return Result.Success(existingFile)
+            }
+
+            // Validate size before downloading
+            if (!attachmentStorageManager.validateFileSize(attachment.size)) {
+                return Result.Error(Exception("Attachment too large (max 25 MB)"))
+            }
+
+            // Get account credentials
+            val accountEntity = accountDao.getAccountById(email.accountId)
+                ?: return Result.Error(Exception("Account not found"))
+            val account = accountEntity.toDomain()
+
+            val password = credentialManager.getPassword(email.accountId)
+                ?: return Result.Error(Exception("Password not found"))
+
+            // Get folder info
+            val folderEntity = folderDao.getFolderById(email.folderId)
+                ?: return Result.Error(Exception("Folder not found"))
+
+            // Connect to IMAP and download
+            val store = imapService.connect(account, password)
+            try {
+                val inputStreamResult = imapService.downloadAttachment(
+                    store, folderEntity.name, email.messageId, attachmentIndex
+                )
+
+                when (inputStreamResult) {
+                    is Result.Success -> {
+                        // Save to cache directory
+                        val saveResult = attachmentStorageManager.saveAttachment(
+                            emailId, attachmentId, attachment.fileName, inputStreamResult.data
+                        )
+                        // Close the input stream
+                        inputStreamResult.data.close()
+                        saveResult
+                    }
+                    is Result.Error -> inputStreamResult
+                    else -> Result.Error(Exception("Unknown error"))
+                }
+            } finally {
+                imapService.disconnect(store)
+            }
+        } catch (e: Exception) {
+            Result.Error(e, "Failed to download attachment: ${e.message}")
         }
     }
 

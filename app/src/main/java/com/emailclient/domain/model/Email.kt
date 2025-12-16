@@ -67,3 +67,14 @@ data class Attachment(
     val contentId: String? = null,
     val isInline: Boolean = false
 ) : Parcelable
+
+/**
+ * Download state for attachments
+ * Note: This is managed in the presentation layer, not stored in the domain model
+ */
+enum class DownloadState {
+    NOT_DOWNLOADED,
+    DOWNLOADING,
+    DOWNLOADED,
+    DOWNLOAD_FAILED
+}

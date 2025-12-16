@@ -1,5 +1,6 @@
 package com.emailclient.presentation.detail
 
+import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -9,6 +10,7 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
+import androidx.core.content.FileProvider
 import androidx.core.view.MenuProvider
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -25,6 +27,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import org.jsoup.Jsoup
 import org.jsoup.safety.Safelist
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -44,6 +47,15 @@ class EmailDetailFragment : Fragment() {
 
     private var currentMenu: Menu? = null
 
+    private val attachmentAdapter = AttachmentAdapter(
+        onDownloadClick = { attachmentId ->
+            viewModel.downloadAttachment(attachmentId)
+        },
+        onOpenClick = { attachmentId ->
+            viewModel.openAttachment(attachmentId)
+        }
+    )
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -59,10 +71,15 @@ class EmailDetailFragment : Fragment() {
         setupMenu()
         setupWebView()
         setupLoadImagesButton()
+        setupAttachments()
         observeViewModel()
 
         // Load email
         viewModel.loadEmail(args.emailId)
+    }
+
+    private fun setupAttachments() {
+        binding.recyclerViewAttachments.adapter = attachmentAdapter
     }
 
     private fun setupMenu() {
@@ -347,6 +364,37 @@ class EmailDetailFragment : Fragment() {
                         }
                     }
                 }
+
+                // Observe attachment states
+                launch {
+                    viewModel.attachmentStates.collect { states ->
+                        if (states.isEmpty()) {
+                            binding.recyclerViewAttachments.visibility = View.GONE
+                        } else {
+                            binding.recyclerViewAttachments.visibility = View.VISIBLE
+                            attachmentAdapter.submitList(states.values.toList())
+                        }
+                    }
+                }
+
+                // Observe attachment actions
+                launch {
+                    viewModel.attachmentAction.collect { action ->
+                        when (action) {
+                            is EmailDetailViewModel.AttachmentAction.Open -> {
+                                openFile(action.file)
+                                viewModel.clearAttachmentAction()
+                            }
+                            is EmailDetailViewModel.AttachmentAction.Error -> {
+                                Snackbar.make(binding.root, action.message, Snackbar.LENGTH_LONG).show()
+                                viewModel.clearAttachmentAction()
+                            }
+                            null -> {
+                                // No action
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -568,6 +616,62 @@ class EmailDetailFragment : Fragment() {
             </body>
             </html>
         """.trimIndent()
+    }
+
+    /**
+     * Open attachment file with appropriate app
+     */
+    private fun openFile(file: File) {
+        try {
+            val uri = FileProvider.getUriForFile(
+                requireContext(),
+                "${requireContext().packageName}.fileprovider",
+                file
+            )
+
+            val mimeType = getMimeType(file)
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, mimeType)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+
+            try {
+                startActivity(Intent.createChooser(intent, getString(R.string.open_attachment)))
+            } catch (e: Exception) {
+                Snackbar.make(
+                    binding.root,
+                    getString(R.string.no_app_to_open),
+                    Snackbar.LENGTH_LONG
+                ).show()
+            }
+        } catch (e: Exception) {
+            Snackbar.make(
+                binding.root,
+                "Error opening file: ${e.message}",
+                Snackbar.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    /**
+     * Get MIME type for file
+     */
+    private fun getMimeType(file: File): String {
+        val extension = file.extension.lowercase()
+        return when (extension) {
+            "pdf" -> "application/pdf"
+            "doc", "docx" -> "application/msword"
+            "xls", "xlsx" -> "application/vnd.ms-excel"
+            "ppt", "pptx" -> "application/vnd.ms-powerpoint"
+            "txt" -> "text/plain"
+            "jpg", "jpeg" -> "image/jpeg"
+            "png" -> "image/png"
+            "gif" -> "image/gif"
+            "zip" -> "application/zip"
+            "mp4" -> "video/mp4"
+            "mp3" -> "audio/mpeg"
+            else -> "application/octet-stream"
+        }
     }
 
     override fun onDestroyView() {

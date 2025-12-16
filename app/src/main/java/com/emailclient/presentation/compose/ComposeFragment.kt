@@ -1,9 +1,13 @@
 package com.emailclient.presentation.compose
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
@@ -28,6 +32,25 @@ class ComposeFragment : Fragment() {
     private val args: ComposeFragmentArgs by navArgs()
     private val viewModel: ComposeViewModel by viewModels()
 
+    private lateinit var attachmentAdapter: ComposeAttachmentAdapter
+
+    private val filePickerLauncher = registerForActivityResult(
+        ActivityResultContracts.GetMultipleContents()
+    ) { uris: List<Uri> ->
+        uris.forEach { uri ->
+            // Take persistable permission
+            try {
+                requireContext().contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (e: SecurityException) {
+                // Permission not available, will still try to read
+            }
+            viewModel.addAttachment(uri)
+        }
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -40,6 +63,7 @@ class ComposeFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        setupAttachments()
         setupButtons()
         observeViewModel()
 
@@ -53,6 +77,13 @@ class ComposeFragment : Fragment() {
         }
     }
 
+    private fun setupAttachments() {
+        attachmentAdapter = ComposeAttachmentAdapter { attachmentId ->
+            viewModel.removeAttachment(attachmentId)
+        }
+        binding.recyclerViewAttachments.adapter = attachmentAdapter
+    }
+
     private fun setupButtons() {
         binding.btnSend.setOnClickListener {
             sendEmail()
@@ -60,6 +91,10 @@ class ComposeFragment : Fragment() {
 
         binding.btnShowCcBcc.setOnClickListener {
             toggleCcBccVisibility()
+        }
+
+        binding.btnAttach.setOnClickListener {
+            filePickerLauncher.launch("*/*")
         }
     }
 
@@ -178,6 +213,14 @@ class ComposeFragment : Fragment() {
                                 binding.editCc.setText(it.cc)
                             }
                         }
+                    }
+                }
+
+                // Observe attachments
+                launch {
+                    viewModel.attachments.collect { attachments ->
+                        attachmentAdapter.submitList(attachments)
+                        binding.recyclerViewAttachments.isVisible = attachments.isNotEmpty()
                     }
                 }
             }

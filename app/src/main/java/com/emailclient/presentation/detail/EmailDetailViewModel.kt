@@ -2,6 +2,9 @@ package com.emailclient.presentation.detail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.emailclient.data.local.AttachmentStorageManager
+import com.emailclient.domain.model.Attachment
+import com.emailclient.domain.model.DownloadState
 import com.emailclient.domain.model.Email
 import com.emailclient.domain.model.Folder
 import com.emailclient.domain.repository.AccountRepository
@@ -13,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.File
 import javax.inject.Inject
 
 /**
@@ -22,7 +26,8 @@ import javax.inject.Inject
 class EmailDetailViewModel @Inject constructor(
     private val emailRepository: EmailRepository,
     private val folderRepository: FolderRepository,
-    private val accountRepository: AccountRepository
+    private val accountRepository: AccountRepository,
+    private val attachmentStorageManager: AttachmentStorageManager
 ) : ViewModel() {
 
     private val _email = MutableStateFlow<Email?>(null)
@@ -49,6 +54,12 @@ class EmailDetailViewModel @Inject constructor(
     private val _autoDownloadImagesEnabled = MutableStateFlow(false)
     val autoDownloadImagesEnabled: StateFlow<Boolean> = _autoDownloadImagesEnabled.asStateFlow()
 
+    private val _attachmentStates = MutableStateFlow<Map<String, AttachmentUiState>>(emptyMap())
+    val attachmentStates: StateFlow<Map<String, AttachmentUiState>> = _attachmentStates.asStateFlow()
+
+    private val _attachmentAction = MutableStateFlow<AttachmentAction?>(null)
+    val attachmentAction: StateFlow<AttachmentAction?> = _attachmentAction.asStateFlow()
+
     private var pendingAction: PendingAction? = null
 
     data class PendingAction(
@@ -58,6 +69,18 @@ class EmailDetailViewModel @Inject constructor(
     )
 
     enum class ActionType { DELETE, ARCHIVE }
+
+    data class AttachmentUiState(
+        val attachment: Attachment,
+        val downloadState: DownloadState,
+        val progress: Int = 0,
+        val error: String? = null
+    )
+
+    sealed class AttachmentAction {
+        data class Open(val file: File) : AttachmentAction()
+        data class Error(val message: String) : AttachmentAction()
+    }
 
     /**
      * Load email by ID
@@ -77,6 +100,9 @@ class EmailDetailViewModel @Inject constructor(
                         if (!result.data.isRead) {
                             emailRepository.markAsRead(emailId, true)
                         }
+
+                        // Initialize attachment states
+                        initializeAttachmentStates(result.data)
 
                         // Load account settings to determine auto-download preference
                         loadAccountSettings(result.data.accountId)
@@ -296,5 +322,111 @@ class EmailDetailViewModel @Inject constructor(
     fun loadImages() {
         _imagesLoaded.value = true
         updateLoadImagesButtonVisibility()
+    }
+
+    /**
+     * Initialize attachment states for the loaded email
+     */
+    private suspend fun initializeAttachmentStates(email: Email) {
+        val states = mutableMapOf<String, AttachmentUiState>()
+
+        for (attachment in email.attachments) {
+            // Check if attachment is already downloaded
+            val file = attachmentStorageManager.getAttachmentFile(email.id, attachment.id)
+            val downloadState = if (file?.exists() == true) {
+                DownloadState.DOWNLOADED
+            } else {
+                DownloadState.NOT_DOWNLOADED
+            }
+
+            states[attachment.id] = AttachmentUiState(
+                attachment = attachment,
+                downloadState = downloadState
+            )
+        }
+
+        _attachmentStates.value = states
+    }
+
+    /**
+     * Download an attachment
+     */
+    fun downloadAttachment(attachmentId: String) {
+        viewModelScope.launch {
+            val email = _email.value ?: return@launch
+
+            // Update state to downloading
+            updateAttachmentState(attachmentId) {
+                it.copy(downloadState = DownloadState.DOWNLOADING)
+            }
+
+            when (val result = emailRepository.downloadAttachment(email.id, attachmentId)) {
+                is Result.Success -> {
+                    updateAttachmentState(attachmentId) {
+                        it.copy(
+                            downloadState = DownloadState.DOWNLOADED,
+                            error = null
+                        )
+                    }
+                }
+                is Result.Error -> {
+                    updateAttachmentState(attachmentId) {
+                        it.copy(
+                            downloadState = DownloadState.DOWNLOAD_FAILED,
+                            error = result.message ?: "Download failed"
+                        )
+                    }
+                    _error.value = result.message ?: "Failed to download attachment"
+                }
+                else -> {
+                    updateAttachmentState(attachmentId) {
+                        it.copy(
+                            downloadState = DownloadState.DOWNLOAD_FAILED,
+                            error = "Unknown error"
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Open an attachment
+     */
+    fun openAttachment(attachmentId: String) {
+        viewModelScope.launch {
+            val email = _email.value ?: return@launch
+            val file = attachmentStorageManager.getAttachmentFile(email.id, attachmentId)
+
+            if (file?.exists() == true) {
+                _attachmentAction.value = AttachmentAction.Open(file)
+            } else {
+                // Download first if not already downloaded
+                val state = _attachmentStates.value[attachmentId]
+                if (state?.downloadState == DownloadState.NOT_DOWNLOADED ||
+                    state?.downloadState == DownloadState.DOWNLOAD_FAILED) {
+                    downloadAttachment(attachmentId)
+                }
+            }
+        }
+    }
+
+    /**
+     * Clear attachment action after it's been handled
+     */
+    fun clearAttachmentAction() {
+        _attachmentAction.value = null
+    }
+
+    /**
+     * Update the state of a specific attachment
+     */
+    private fun updateAttachmentState(
+        attachmentId: String,
+        update: (AttachmentUiState) -> AttachmentUiState
+    ) {
+        _attachmentStates.value = _attachmentStates.value.toMutableMap().apply {
+            this[attachmentId]?.let { this[attachmentId] = update(it) }
+        }
     }
 }

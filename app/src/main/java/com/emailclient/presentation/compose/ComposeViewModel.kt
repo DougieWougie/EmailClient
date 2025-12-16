@@ -1,16 +1,21 @@
 package com.emailclient.presentation.compose
 
+import android.content.Context
+import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.emailclient.domain.repository.AccountRepository
 import com.emailclient.domain.repository.EmailRepository
 import com.emailclient.util.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.util.UUID
 import javax.inject.Inject
 
 /**
@@ -18,6 +23,7 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class ComposeViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val emailRepository: EmailRepository,
     private val accountRepository: AccountRepository
 ) : ViewModel() {
@@ -28,9 +34,17 @@ class ComposeViewModel @Inject constructor(
     private val _composeData = MutableStateFlow<ComposeData?>(null)
     val composeData: StateFlow<ComposeData?> = _composeData.asStateFlow()
 
+    private val _attachments = MutableStateFlow<List<AttachmentItem>>(emptyList())
+    val attachments: StateFlow<List<AttachmentItem>> = _attachments.asStateFlow()
+
     // Rate limiting
     private val sentTimes = mutableListOf<Long>()
     private val maxEmailsPer5Min = 20
+
+    companion object {
+        private const val MAX_ATTACHMENT_SIZE = 25 * 1024 * 1024L // 25 MB
+        private const val MAX_TOTAL_ATTACHMENT_SIZE = 50 * 1024 * 1024L // 50 MB
+    }
 
     /**
      * Prepare compose screen for reply or forward
@@ -157,6 +171,9 @@ class ComposeViewModel @Inject constructor(
                     return@launch
                 }
 
+                // Get attachment URIs
+                val attachmentUris = _attachments.value.map { it.uri }
+
                 // Send email via repository
                 val result = emailRepository.sendEmail(
                     accountId = account.id,
@@ -165,7 +182,8 @@ class ComposeViewModel @Inject constructor(
                     bcc = bccAddresses,
                     subject = subject,
                     body = body,
-                    isHtml = isHtml
+                    isHtml = isHtml,
+                    attachmentUris = attachmentUris
                 )
 
                 when (result) {
@@ -236,6 +254,120 @@ class ComposeViewModel @Inject constructor(
     fun resetState() {
         _uiState.value = ComposeState.Idle
     }
+
+    /**
+     * Add attachment from URI
+     */
+    fun addAttachment(uri: Uri) {
+        viewModelScope.launch {
+            try {
+                // Get file metadata from URI
+                val fileName = getFileNameFromUri(uri) ?: "attachment"
+                val mimeType = getMimeTypeFromUri(uri) ?: "application/octet-stream"
+                val size = getFileSizeFromUri(uri)
+
+                // Validate size
+                if (size > MAX_ATTACHMENT_SIZE) {
+                    _uiState.value = ComposeState.Error("File too large (max 25 MB)")
+                    return@launch
+                }
+
+                val currentSize = _attachments.value.sumOf { it.size }
+                if (currentSize + size > MAX_TOTAL_ATTACHMENT_SIZE) {
+                    _uiState.value = ComposeState.Error("Total attachment size exceeds 50 MB")
+                    return@launch
+                }
+
+                // Validate file type
+                if (!isAllowedFileType(fileName, mimeType)) {
+                    _uiState.value = ComposeState.Error("File type not allowed")
+                    return@launch
+                }
+
+                // Add to list
+                val attachment = AttachmentItem(
+                    uri = uri,
+                    fileName = fileName,
+                    mimeType = mimeType,
+                    size = size
+                )
+                _attachments.value = _attachments.value + attachment
+
+            } catch (e: Exception) {
+                _uiState.value = ComposeState.Error("Failed to add attachment: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Remove attachment by ID
+     */
+    fun removeAttachment(attachmentId: String) {
+        _attachments.value = _attachments.value.filter { it.id != attachmentId }
+    }
+
+    /**
+     * Get filename from URI
+     */
+    private fun getFileNameFromUri(uri: Uri): String? {
+        return context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (cursor.moveToFirst() && nameIndex >= 0) {
+                cursor.getString(nameIndex)
+            } else {
+                null
+            }
+        }
+    }
+
+    /**
+     * Get MIME type from URI
+     */
+    private fun getMimeTypeFromUri(uri: Uri): String? {
+        return context.contentResolver.getType(uri)
+    }
+
+    /**
+     * Get file size from URI
+     */
+    private fun getFileSizeFromUri(uri: Uri): Long {
+        return context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+            if (cursor.moveToFirst() && sizeIndex >= 0) {
+                cursor.getLong(sizeIndex)
+            } else {
+                0L
+            }
+        } ?: 0L
+    }
+
+    /**
+     * Check if file type is allowed
+     */
+    private fun isAllowedFileType(fileName: String, mimeType: String): Boolean {
+        val extension = fileName.substringAfterLast('.', "").lowercase()
+
+        // Block dangerous file types
+        val blockedExtensions = setOf(
+            "exe", "bat", "sh", "app", "deb", "rpm", "apk",
+            "msi", "dll", "scr", "vbs", "js", "jar", "com",
+            "cmd", "ps1", "psm1"
+        )
+
+        if (extension in blockedExtensions) return false
+
+        // Block executable MIME types
+        val blockedMimeTypes = setOf(
+            "application/x-executable",
+            "application/x-msdownload",
+            "application/x-sh",
+            "application/x-bat"
+        )
+
+        if (mimeType in blockedMimeTypes) return false
+
+        return true
+    }
 }
 
 /**
@@ -256,4 +388,15 @@ data class ComposeData(
     val cc: String,
     val subject: String,
     val body: String
+)
+
+/**
+ * Attachment item for compose screen
+ */
+data class AttachmentItem(
+    val id: String = UUID.randomUUID().toString(),
+    val uri: Uri,
+    val fileName: String,
+    val mimeType: String,
+    val size: Long
 )

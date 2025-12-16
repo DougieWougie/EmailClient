@@ -243,6 +243,7 @@ class IMAPService @Inject constructor() {
                 isRead = message.flags.contains(Flags.Flag.SEEN),
                 isFlagged = message.flags.contains(Flags.Flag.FLAGGED),
                 hasAttachments = hasAttachments(message),
+                attachments = extractAttachments(message),
                 size = message.size.toLong(),
                 snippet = snippet
             )
@@ -319,6 +320,203 @@ class IMAPService @Inject constructor() {
         } catch (e: Exception) {
             false
         }
+    }
+
+    /**
+     * Extract attachment metadata from message
+     */
+    private fun extractAttachments(message: Message): List<Attachment> {
+        return try {
+            val attachments = mutableListOf<Attachment>()
+            val content = message.content
+
+            if (content is MimeMultipart) {
+                extractAttachmentsFromMultipart(content, attachments)
+            }
+
+            attachments
+        } catch (e: Exception) {
+            android.util.Log.e("IMAPService", "Error extracting attachments", e)
+            emptyList()
+        }
+    }
+
+    /**
+     * Recursively extract attachments from multipart content
+     */
+    private fun extractAttachmentsFromMultipart(
+        multipart: MimeMultipart,
+        attachments: MutableList<Attachment>
+    ) {
+        for (i in 0 until multipart.count) {
+            val bodyPart = multipart.getBodyPart(i)
+            val disposition = bodyPart.disposition?.lowercase()
+            val contentType = bodyPart.contentType.lowercase()
+
+            when {
+                // Check for attachment disposition
+                Part.ATTACHMENT.equals(disposition, ignoreCase = true) -> {
+                    val attachment = createAttachment(bodyPart, i)
+                    if (attachment != null) {
+                        attachments.add(attachment)
+                    }
+                }
+                // Check for inline disposition with filename (inline attachments/images)
+                Part.INLINE.equals(disposition, ignoreCase = true) && bodyPart.fileName != null -> {
+                    val attachment = createAttachment(bodyPart, i, isInline = true)
+                    if (attachment != null) {
+                        attachments.add(attachment)
+                    }
+                }
+                // Recursively check nested multipart
+                bodyPart.content is MimeMultipart -> {
+                    extractAttachmentsFromMultipart(bodyPart.content as MimeMultipart, attachments)
+                }
+            }
+        }
+    }
+
+    /**
+     * Create attachment object from body part
+     */
+    private fun createAttachment(
+        bodyPart: BodyPart,
+        index: Int,
+        isInline: Boolean = false
+    ): Attachment? {
+        return try {
+            val fileName = bodyPart.fileName ?: "attachment_$index"
+            val mimeType = bodyPart.contentType.split(";").firstOrNull()?.trim()
+                ?: "application/octet-stream"
+            val size = bodyPart.size.toLong()
+
+            // Get Content-ID for inline attachments
+            val contentId = if (isInline) {
+                val cid = (bodyPart as? javax.mail.internet.MimeBodyPart)?.contentID
+                cid?.removePrefix("<")?.removeSuffix(">")
+            } else {
+                null
+            }
+
+            Attachment(
+                id = "$index", // Use index as ID, will be used to download
+                fileName = fileName,
+                mimeType = mimeType,
+                size = size,
+                contentId = contentId,
+                isInline = isInline
+            )
+        } catch (e: Exception) {
+            android.util.Log.e("IMAPService", "Error creating attachment", e)
+            null
+        }
+    }
+
+    /**
+     * Download attachment content from IMAP server
+     */
+    suspend fun downloadAttachment(
+        store: Store,
+        folderName: String,
+        messageId: String,
+        attachmentIndex: Int
+    ): com.emailclient.util.Result<java.io.InputStream> = withContext(Dispatchers.IO) {
+        return@withContext try {
+            val folder = store.getFolder(folderName)
+            folder.open(JavaMailFolder.READ_ONLY)
+
+            try {
+                // Find the message by Message-ID
+                val message = findMessageByMessageId(folder, messageId)
+                    ?: return@withContext com.emailclient.util.Result.Error(
+                        Exception("Message not found: $messageId")
+                    )
+
+                // Get the content
+                val content = message.content
+                if (content !is MimeMultipart) {
+                    return@withContext com.emailclient.util.Result.Error(
+                        Exception("Message does not contain multipart content")
+                    )
+                }
+
+                // Find the attachment by index
+                val bodyPart = getAttachmentPart(content, attachmentIndex)
+                    ?: return@withContext com.emailclient.util.Result.Error(
+                        Exception("Attachment not found at index $attachmentIndex")
+                    )
+
+                // Get the input stream for the attachment
+                val inputStream = bodyPart.inputStream
+
+                com.emailclient.util.Result.Success(inputStream)
+            } finally {
+                // Don't close folder here - caller needs to read the stream
+                // Caller is responsible for closing folder
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("IMAPService", "Error downloading attachment", e)
+            com.emailclient.util.Result.Error(e, "Failed to download attachment: ${e.message}")
+        }
+    }
+
+    /**
+     * Get attachment body part by index from multipart content
+     */
+    private fun getAttachmentPart(
+        multipart: MimeMultipart,
+        targetIndex: Int
+    ): BodyPart? {
+        var currentIndex = 0
+
+        for (i in 0 until multipart.count) {
+            val bodyPart = multipart.getBodyPart(i)
+            val disposition = bodyPart.disposition?.lowercase()
+
+            when {
+                Part.ATTACHMENT.equals(disposition, ignoreCase = true) ||
+                (Part.INLINE.equals(disposition, ignoreCase = true) && bodyPart.fileName != null) -> {
+                    if (currentIndex == targetIndex) {
+                        return bodyPart
+                    }
+                    currentIndex++
+                }
+                bodyPart.content is MimeMultipart -> {
+                    val result = getAttachmentPart(bodyPart.content as MimeMultipart, targetIndex - currentIndex)
+                    if (result != null) {
+                        return result
+                    }
+                    // Update current index based on attachments found in nested multipart
+                    currentIndex += countAttachments(bodyPart.content as MimeMultipart)
+                }
+            }
+        }
+
+        return null
+    }
+
+    /**
+     * Count attachments in multipart content
+     */
+    private fun countAttachments(multipart: MimeMultipart): Int {
+        var count = 0
+
+        for (i in 0 until multipart.count) {
+            val bodyPart = multipart.getBodyPart(i)
+            val disposition = bodyPart.disposition?.lowercase()
+
+            when {
+                Part.ATTACHMENT.equals(disposition, ignoreCase = true) ||
+                (Part.INLINE.equals(disposition, ignoreCase = true) && bodyPart.fileName != null) -> {
+                    count++
+                }
+                bodyPart.content is MimeMultipart -> {
+                    count += countAttachments(bodyPart.content as MimeMultipart)
+                }
+            }
+        }
+
+        return count
     }
 
     /**
