@@ -77,7 +77,7 @@
             android:textAppearance="@style/TextAppearance.Material3.BodySmall"
             android:textColor="?attr/colorOnSurfaceVariant"
             android:fontFamily="monospace"
-            app:layout_constraintTop_toBottomOf="@id/cardProfileImage"
+            app:layout_constraintTop_toBottomOf="@id/textDisplayName"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             tools:text="IMAP: imap.gmail.com:993\nSMTP: smtp.gmail.com:465" />
