@@ -36,6 +36,9 @@ class AccountSetupViewModel @Inject constructor(
     private val _editingAccount = MutableStateFlow<Account?>(null)
     val editingAccount: StateFlow<Account?> = _editingAccount.asStateFlow()
 
+    private val _editingAccountPassword = MutableStateFlow<String?>(null)
+    val editingAccountPassword: StateFlow<String?> = _editingAccountPassword.asStateFlow()
+
     private var profileImageUri: String? = null
 
     val isEditMode: Boolean
@@ -57,6 +60,8 @@ class AccountSetupViewModel @Inject constructor(
                 is Result.Success -> {
                     _editingAccount.value = result.data
                     profileImageUri = result.data.profileImageUri
+                    // Load password for editing
+                    _editingAccountPassword.value = accountRepository.getPassword(accountId)
                 }
                 is Result.Error -> {
                     _uiState.value = AccountSetupState.Error(
@@ -196,6 +201,8 @@ class AccountSetupViewModel @Inject constructor(
 
                 when (val result = accountRepository.updateAccount(updatedAccount)) {
                     is Result.Success -> {
+                        // Update password in credential manager
+                        accountRepository.updatePassword(updatedAccount.id, password)
                         _uiState.value = AccountSetupState.Success(updatedAccount.id)
                     }
                     is Result.Error -> {

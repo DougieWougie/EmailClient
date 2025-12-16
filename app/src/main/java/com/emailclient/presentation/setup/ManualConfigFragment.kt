@@ -70,6 +70,7 @@ class ManualConfigFragment : Fragment() {
         observeViewModel()
         observeDiscoveredConfig()
         observeEditingAccount()
+        observeEditingAccountPassword()
         setupAutoDetect()
     }
 
@@ -334,27 +335,30 @@ class ManualConfigFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.editingAccount.collect { account ->
-                    account?.let {
+                    if (account != null) {
+                        // Edit mode - update button text
+                        binding.buttonTestConnection.text = "Test and Save"
+
                         // Pre-fill all fields with existing account data
-                        binding.editTextEmail.setText(it.email)
-                        binding.editTextDisplayName.setText(it.displayName)
+                        binding.editTextEmail.setText(account.email)
+                        binding.editTextDisplayName.setText(account.displayName)
 
                         // Pre-fill IMAP settings
-                        binding.editTextImapHost.setText(it.imapConfig.host)
-                        binding.editTextImapPort.setText(it.imapConfig.port.toString())
+                        binding.editTextImapHost.setText(account.imapConfig.host)
+                        binding.editTextImapPort.setText(account.imapConfig.port.toString())
                         binding.spinnerImapSecurity.setSelection(
-                            getSecurityTypePosition(it.imapConfig.securityType)
+                            getSecurityTypePosition(account.imapConfig.securityType)
                         )
 
                         // Pre-fill SMTP settings
-                        binding.editTextSmtpHost.setText(it.smtpConfig.host)
-                        binding.editTextSmtpPort.setText(it.smtpConfig.port.toString())
+                        binding.editTextSmtpHost.setText(account.smtpConfig.host)
+                        binding.editTextSmtpPort.setText(account.smtpConfig.port.toString())
                         binding.spinnerSmtpSecurity.setSelection(
-                            getSecurityTypePosition(it.smtpConfig.securityType)
+                            getSecurityTypePosition(account.smtpConfig.securityType)
                         )
 
                         // Load profile image if exists
-                        it.profileImageUri?.let { uri ->
+                        account.profileImageUri?.let { uri ->
                             selectedImageUri = Uri.parse(uri)
                             displayProfileImage(selectedImageUri!!)
                         }
@@ -362,7 +366,23 @@ class ManualConfigFragment : Fragment() {
                         // Disable email field when editing (can't change email)
                         binding.editTextEmail.isEnabled = false
 
-                        android.util.Log.d("ManualConfig", "Pre-filled account: ${it.email}")
+                        android.util.Log.d("ManualConfig", "Pre-filled account: ${account.email}")
+                    } else {
+                        // Add mode - use default button text
+                        binding.buttonTestConnection.text = "Test Connection and Add Account"
+                    }
+                }
+            }
+        }
+    }
+
+    private fun observeEditingAccountPassword() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.editingAccountPassword.collect { password ->
+                    password?.let {
+                        // Pre-fill password field (will be masked by inputType)
+                        binding.editTextPassword.setText(it)
                     }
                 }
             }

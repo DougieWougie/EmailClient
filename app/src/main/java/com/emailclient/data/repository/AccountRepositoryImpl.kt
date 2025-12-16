@@ -207,4 +207,12 @@ class AccountRepositoryImpl @Inject constructor(
             Result.Error(e, e.message ?: "Connection test failed")
         }
     }
+
+    override suspend fun getPassword(accountId: Long): String? {
+        return credentialManager.getPassword(accountId)
+    }
+
+    override suspend fun updatePassword(accountId: Long, password: String) {
+        credentialManager.savePassword(accountId, password)
+    }
 }

@@ -30,4 +30,8 @@ interface AccountRepository {
     suspend fun deleteAccount(accountId: Long): Result<Unit>
 
     suspend fun testConnection(account: Account, password: String): Result<Boolean>
+
+    suspend fun getPassword(accountId: Long): String?
+
+    suspend fun updatePassword(accountId: Long, password: String)
 }
