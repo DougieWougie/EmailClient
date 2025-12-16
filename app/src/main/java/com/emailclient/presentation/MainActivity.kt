@@ -94,17 +94,7 @@ class MainActivity : AppCompatActivity() {
 
         setupDrawer()
         setupDrawerHeader()
-        setupFab()
         checkForAccounts()
-    }
-
-    private fun setupFab() {
-        binding.fabCompose.setOnClickListener {
-            val navHostFragment = supportFragmentManager
-                .findFragmentById(R.id.nav_host_fragment) as NavHostFragment
-            val navController = navHostFragment.navController
-            navController.navigate(R.id.composeFragment)
-        }
     }
 
     private fun checkForAccounts() {
