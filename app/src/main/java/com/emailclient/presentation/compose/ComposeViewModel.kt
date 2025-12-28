@@ -136,8 +136,24 @@ class ComposeViewModel @Inject constructor(
                     return@launch
                 }
 
-                // Validate subject and body
-                if (subject.length > 998) {
+                // Security: Validate subject for header injection attacks
+                if (subject.contains("\r") || subject.contains("\n") || subject.contains("\u0000")) {
+                    _uiState.value = ComposeState.Error("Subject contains invalid characters")
+                    return@launch
+                }
+
+                // Sanitize subject by removing all control characters
+                val sanitizedSubject = subject
+                    .replace(Regex("[\u0000-\u001F\u007F]"), "") // Remove all control characters
+                    .trim()
+                    .take(998) // RFC 2822 limit
+
+                if (sanitizedSubject.isEmpty()) {
+                    _uiState.value = ComposeState.Error("Subject cannot be empty after sanitization")
+                    return@launch
+                }
+
+                if (sanitizedSubject.length > 998) {
                     _uiState.value = ComposeState.Error("Subject too long (maximum 998 characters)")
                     return@launch
                 }
@@ -147,9 +163,17 @@ class ComposeViewModel @Inject constructor(
                     return@launch
                 }
 
-                // Check for null bytes and control characters
-                if (subject.contains('\u0000') || body.contains('\u0000')) {
-                    _uiState.value = ComposeState.Error("Email contains invalid characters")
+                // Security: Sanitize body to prevent header injection via multipart boundaries
+                val sanitizedBody = if (body.startsWith("\r\n") || body.startsWith("\n")) {
+                    // Remove leading newlines that could break multipart boundaries
+                    body.trimStart('\r', '\n')
+                } else {
+                    body
+                }
+
+                // Check for null bytes
+                if (sanitizedBody.contains('\u0000')) {
+                    _uiState.value = ComposeState.Error("Email body contains invalid characters")
                     return@launch
                 }
 
@@ -175,14 +199,14 @@ class ComposeViewModel @Inject constructor(
                 // Get attachment URIs
                 val attachmentUris = _attachments.value.map { it.uri }
 
-                // Send email via repository
+                // Send email via repository with sanitized content
                 val result = emailRepository.sendEmail(
                     accountId = account.id,
                     to = toAddresses,
                     cc = ccAddresses,
                     bcc = bccAddresses,
-                    subject = subject,
-                    body = body,
+                    subject = sanitizedSubject,
+                    body = sanitizedBody,
                     isHtml = isHtml,
                     attachmentUris = attachmentUris
                 )

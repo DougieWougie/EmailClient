@@ -1,7 +1,9 @@
 package com.emailclient.presentation.setup
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.emailclient.data.local.ProfileImageManager
 import com.emailclient.data.remote.AutoDiscoveryService
 import com.emailclient.domain.model.Account
 import com.emailclient.domain.model.AccountType
@@ -24,7 +26,8 @@ import javax.inject.Inject
 class AccountSetupViewModel @Inject constructor(
     private val accountRepository: AccountRepository,
     private val workManagerHelper: WorkManagerHelper,
-    private val autoDiscoveryService: AutoDiscoveryService
+    private val autoDiscoveryService: AutoDiscoveryService,
+    private val profileImageManager: ProfileImageManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<AccountSetupState>(AccountSetupState.Idle)
@@ -40,15 +43,17 @@ class AccountSetupViewModel @Inject constructor(
     val editingAccountPassword: StateFlow<String?> = _editingAccountPassword.asStateFlow()
 
     private var profileImageUri: String? = null
+    private var pendingImageUri: Uri? = null
 
     val isEditMode: Boolean
         get() = _editingAccount.value != null
 
     /**
-     * Set profile image URI
+     * Set profile image URI from image picker.
+     * The image will be securely saved when the account is created/updated.
      */
     fun setProfileImage(uri: String?) {
-        profileImageUri = uri
+        pendingImageUri = uri?.let { Uri.parse(it) }
     }
 
     /**
@@ -192,11 +197,35 @@ class AccountSetupViewModel @Inject constructor(
 
             if (editingAccountValue != null) {
                 // Edit mode: Update existing account
+
+                // Save profile image securely if a new one was selected
+                val savedImageUri = if (pendingImageUri != null) {
+                    when (val result = profileImageManager.saveProfileImage(
+                        pendingImageUri!!,
+                        editingAccountValue.id
+                    )) {
+                        is ProfileImageManager.Result.Success -> {
+                            // Clean up old images
+                            profileImageManager.cleanupOldImages(
+                                editingAccountValue.id,
+                                result.imageUri
+                            )
+                            result.imageUri
+                        }
+                        is ProfileImageManager.Result.Error -> {
+                            _uiState.value = AccountSetupState.Error(result.message)
+                            return@launch
+                        }
+                    }
+                } else {
+                    editingAccountValue.profileImageUri
+                }
+
                 val updatedAccount = account.copy(
                     id = editingAccountValue.id,
                     isDefault = editingAccountValue.isDefault,
                     syncEnabled = editingAccountValue.syncEnabled,
-                    profileImageUri = profileImageUri ?: editingAccountValue.profileImageUri
+                    profileImageUri = savedImageUri
                 )
 
                 when (val result = accountRepository.updateAccount(updatedAccount)) {
@@ -216,16 +245,40 @@ class AccountSetupViewModel @Inject constructor(
                 }
             } else {
                 // Create mode: Add new account
-                when (val result = accountRepository.addAccount(account, password)) {
+                when (val addResult = accountRepository.addAccount(account, password)) {
                     is Result.Success -> {
+                        val accountId = addResult.data
+
+                        // Save profile image securely if one was selected
+                        if (pendingImageUri != null) {
+                            when (val imageResult = profileImageManager.saveProfileImage(
+                                pendingImageUri!!,
+                                accountId
+                            )) {
+                                is ProfileImageManager.Result.Success -> {
+                                    // Update account with saved image URI
+                                    val updatedAccount = account.copy(
+                                        id = accountId,
+                                        profileImageUri = imageResult.imageUri
+                                    )
+                                    accountRepository.updateAccount(updatedAccount)
+                                }
+                                is ProfileImageManager.Result.Error -> {
+                                    // Log error but don't fail account creation
+                                    android.util.Log.e("AccountSetup",
+                                        "Failed to save profile image: ${imageResult.message}")
+                                }
+                            }
+                        }
+
                         // Schedule background sync
                         workManagerHelper.schedulePeriodicSync()
 
-                        _uiState.value = AccountSetupState.Success(result.data)
+                        _uiState.value = AccountSetupState.Success(accountId)
                     }
                     is Result.Error -> {
                         _uiState.value = AccountSetupState.Error(
-                            result.message ?: "Failed to add account"
+                            addResult.message ?: "Failed to add account"
                         )
                     }
                     else -> {

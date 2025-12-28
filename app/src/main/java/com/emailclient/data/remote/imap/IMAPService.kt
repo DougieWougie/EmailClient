@@ -41,12 +41,16 @@ class IMAPService @Inject constructor() {
                         put("mail.imap.ssl.enable", "true")
                         put("mail.imap.ssl.protocols", "TLSv1.2 TLSv1.3")
                         put("mail.imap.ssl.checkserveridentity", "true")
+                        // Security: Explicitly trust only the configured host
+                        put("mail.imap.ssl.trust", account.imapConfig.host)
                     }
                     SecurityType.STARTTLS -> {
                         put("mail.imap.starttls.enable", "true")
                         put("mail.imap.starttls.required", "true")
                         put("mail.imap.ssl.protocols", "TLSv1.2 TLSv1.3")
                         put("mail.imap.ssl.checkserveridentity", "true")
+                        // Security: Explicitly trust only the configured host
+                        put("mail.imap.ssl.trust", account.imapConfig.host)
                     }
                     SecurityType.NONE -> {
                         throw SecurityException(

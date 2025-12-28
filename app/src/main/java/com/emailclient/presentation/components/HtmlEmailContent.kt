@@ -1,10 +1,13 @@
 package com.emailclient.presentation.components
 
+import android.content.Intent
+import android.net.Uri
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.webkit.WebResourceRequest
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 
 /**
@@ -21,9 +24,11 @@ fun HtmlEmailContent(
     allowExternalImages: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+
     AndroidView(
-        factory = { context ->
-            WebView(context).apply {
+        factory = { factoryContext ->
+            WebView(factoryContext).apply {
                 settings.apply {
                     // Security: Disable JavaScript
                     javaScriptEnabled = false
@@ -54,7 +59,35 @@ fun HtmlEmailContent(
                         view: WebView?,
                         request: WebResourceRequest?
                     ): Boolean {
-                        // Handle link clicks - could be expanded to open in browser
+                        // Security: Validate URL scheme before opening
+                        request?.url?.let { uri ->
+                            when (uri.scheme?.lowercase()) {
+                                "http", "https" -> {
+                                    // Open HTTP/HTTPS links in external browser
+                                    try {
+                                        val intent = Intent(Intent.ACTION_VIEW, uri)
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("HtmlEmailContent", "Failed to open URL", e)
+                                    }
+                                }
+                                "mailto" -> {
+                                    // Open mailto links in email app
+                                    try {
+                                        val intent = Intent(Intent.ACTION_SENDTO, uri)
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("HtmlEmailContent", "Failed to open mailto", e)
+                                    }
+                                }
+                                else -> {
+                                    // Block all other schemes (javascript:, file:, data:, etc.)
+                                    android.util.Log.w("HtmlEmailContent",
+                                        "Blocked non-standard URL scheme: ${uri.scheme}")
+                                }
+                            }
+                        }
+                        // Always return true to prevent WebView from loading the URL
                         return true
                     }
                 }

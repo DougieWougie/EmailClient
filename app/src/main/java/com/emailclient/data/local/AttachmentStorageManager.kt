@@ -246,30 +246,102 @@ class AttachmentStorageManager @Inject constructor(
     }
 
     /**
-     * Check if file type is allowed
+     * Check if file type is allowed.
+     * Security: Comprehensive validation to prevent malware distribution.
      */
     fun isAllowedFileType(fileName: String, mimeType: String): Boolean {
-        val extension = fileName.substringAfterLast('.', "").lowercase()
+        // Normalize filename
+        val normalizedName = fileName.lowercase().trim()
 
-        // Block dangerous file types
+        // Check for null bytes (directory traversal)
+        if (normalizedName.contains('\u0000')) return false
+
+        // Security: Check ALL extensions in filename, not just the last one
+        // This prevents attacks like "malware.pdf.exe"
+        val allExtensions = normalizedName.split('.').drop(1)
+
+        // Comprehensive blocklist of dangerous extensions
         val blockedExtensions = setOf(
-            "exe", "bat", "sh", "app", "deb", "rpm", "apk",
-            "msi", "dll", "scr", "vbs", "js", "jar", "com",
-            "cmd", "ps1", "psm1"
+            // Executables
+            "exe", "bat", "sh", "app", "deb", "rpm", "apk", "msi", "dll",
+            "scr", "vbs", "js", "jar", "com", "cmd", "ps1", "psm1", "gadget",
+            // Scripts
+            "vb", "ws", "wsf", "wsh", "py", "pl", "rb", "go",
+            // Office macros
+            "docm", "xlsm", "pptm", "dotm", "xltm", "potm",
+            // Archives that could contain executables
+            "7z", "rar", "tar", "gz", "bz2", "xz",
+            // Others
+            "hta", "cpl", "msc", "inf", "reg", "scf", "lnk", "url"
         )
 
-        if (extension in blockedExtensions) return false
+        // Security: Block if ANY extension is dangerous
+        if (allExtensions.any { it in blockedExtensions }) {
+            android.util.Log.w("AttachmentStorage",
+                "Blocked file with dangerous extension: $fileName")
+            return false
+        }
 
-        // Block executable MIME types
+        // Validate MIME type against extension
+        val expectedMimeTypes = getExpectedMimeTypes(allExtensions.lastOrNull() ?: "")
+        if (expectedMimeTypes.isNotEmpty() && mimeType !in expectedMimeTypes) {
+            // MIME type doesn't match extension - suspicious
+            android.util.Log.w("AttachmentStorage",
+                "MIME type mismatch: $mimeType for extension ${allExtensions.lastOrNull()}")
+            // Be strict - reject mismatches as they could indicate spoofing
+            return false
+        }
+
+        // Block executable MIME types regardless of extension
         val blockedMimeTypes = setOf(
             "application/x-executable",
             "application/x-msdownload",
             "application/x-sh",
-            "application/x-bat"
+            "application/x-bat",
+            "application/x-dosexec",
+            "application/vnd.microsoft.portable-executable",
+            "application/x-sharedlib",
+            "application/x-apple-diskimage"
         )
 
-        if (mimeType in blockedMimeTypes) return false
+        if (mimeType in blockedMimeTypes) {
+            android.util.Log.w("AttachmentStorage",
+                "Blocked file with dangerous MIME type: $mimeType")
+            return false
+        }
+
+        // Enforce maximum filename length
+        if (normalizedName.length > 255) return false
 
         return true
+    }
+
+    /**
+     * Get expected MIME types for a file extension.
+     * Used to validate MIME type against extension to prevent spoofing.
+     */
+    private fun getExpectedMimeTypes(extension: String): Set<String> {
+        return when (extension) {
+            "pdf" -> setOf("application/pdf")
+            "jpg", "jpeg" -> setOf("image/jpeg")
+            "png" -> setOf("image/png")
+            "gif" -> setOf("image/gif")
+            "txt" -> setOf("text/plain")
+            "html", "htm" -> setOf("text/html")
+            "doc" -> setOf("application/msword")
+            "docx" -> setOf("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+            "xls" -> setOf("application/vnd.ms-excel")
+            "xlsx" -> setOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            "ppt" -> setOf("application/vnd.ms-powerpoint")
+            "pptx" -> setOf("application/vnd.openxmlformats-officedocument.presentationml.presentation")
+            "zip" -> setOf("application/zip", "application/x-zip-compressed")
+            "mp3" -> setOf("audio/mpeg")
+            "mp4" -> setOf("video/mp4")
+            "avi" -> setOf("video/x-msvideo")
+            "csv" -> setOf("text/csv")
+            "json" -> setOf("application/json")
+            "xml" -> setOf("application/xml", "text/xml")
+            else -> emptySet() // Unknown extension - allow but don't validate MIME
+        }
     }
 }

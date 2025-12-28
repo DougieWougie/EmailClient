@@ -14,6 +14,7 @@ import com.emailclient.data.remote.smtp.SMTPService
 import com.emailclient.domain.model.Email
 import com.emailclient.domain.repository.EmailRepository
 import com.emailclient.util.Result
+import com.emailclient.util.SearchQuerySanitizer
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -76,7 +77,9 @@ class EmailRepositoryImpl @Inject constructor(
     }
 
     override fun searchEmails(accountId: Long, query: String): Flow<List<Email>> {
-        return emailDao.searchEmails(accountId, query).map { entities ->
+        // Sanitize query to prevent SQL injection via LIKE wildcards
+        val sanitizedQuery = SearchQuerySanitizer.sanitize(query)
+        return emailDao.searchEmails(accountId, sanitizedQuery).map { entities ->
             entities.map { it.toDomain() }
         }
     }

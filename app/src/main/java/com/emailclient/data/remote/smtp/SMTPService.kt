@@ -96,12 +96,16 @@ class SMTPService @Inject constructor() {
                     put("mail.smtp.ssl.enable", "true")
                     put("mail.smtp.ssl.protocols", "TLSv1.2 TLSv1.3")
                     put("mail.smtp.ssl.checkserveridentity", "true")
+                    // Security: Explicitly trust only the configured host
+                    put("mail.smtp.ssl.trust", account.smtpConfig.host)
                 }
                 SecurityType.STARTTLS -> {
                     put("mail.smtp.starttls.enable", "true")
                     put("mail.smtp.starttls.required", "true")
                     put("mail.smtp.ssl.protocols", "TLSv1.2 TLSv1.3")
                     put("mail.smtp.ssl.checkserveridentity", "true")
+                    // Security: Explicitly trust only the configured host
+                    put("mail.smtp.ssl.trust", account.smtpConfig.host)
                 }
                 SecurityType.NONE -> {
                     throw SecurityException(

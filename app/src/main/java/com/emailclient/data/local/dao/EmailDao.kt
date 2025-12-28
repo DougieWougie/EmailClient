@@ -36,10 +36,11 @@ interface EmailDao {
     @Query("""
         SELECT * FROM emails
         WHERE accountId = :accountId
-        AND (subject LIKE '%' || :query || '%'
-             OR body LIKE '%' || :query || '%'
-             OR snippet LIKE '%' || :query || '%')
+        AND (subject LIKE '%' || :query || '%' ESCAPE '\'
+             OR body LIKE '%' || :query || '%' ESCAPE '\'
+             OR snippet LIKE '%' || :query || '%' ESCAPE '\')
         ORDER BY receivedDate DESC
+        LIMIT 100
     """)
     fun searchEmails(accountId: Long, query: String): Flow<List<EmailEntity>>
 
