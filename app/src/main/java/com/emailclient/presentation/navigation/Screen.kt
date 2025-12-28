@@ -32,5 +32,11 @@ sealed class Screen(val route: String) {
 
     object Welcome : Screen("welcome")
 
-    object ManualConfig : Screen("manual_config")
+    object ManualConfig : Screen("manual_config?accountId={accountId}") {
+        fun createRoute(accountId: Long? = null) = if (accountId != null) {
+            "manual_config?accountId=$accountId"
+        } else {
+            "manual_config"
+        }
+    }
 }

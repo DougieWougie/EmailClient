@@ -92,7 +92,7 @@ fun EmailClientNavHost(
                     navController.navigate(Screen.FolderManagement.route)
                 },
                 onNavigateToAccountSetup = { accountId ->
-                    navController.navigate(Screen.ManualConfig.route)
+                    navController.navigate(Screen.ManualConfig.createRoute(accountId))
                 }
             )
         }
@@ -134,8 +134,19 @@ fun EmailClientNavHost(
             )
         }
 
-        composable(Screen.ManualConfig.route) {
+        composable(
+            route = Screen.ManualConfig.route,
+            arguments = listOf(
+                navArgument("accountId") {
+                    type = NavType.LongType
+                    defaultValue = -1L
+                }
+            )
+        ) { backStackEntry ->
+            val accountId = backStackEntry.arguments?.getLong("accountId")?.takeIf { it != -1L }
+
             ManualConfigScreen(
+                accountId = accountId,
                 onNavigateBack = { navController.navigateUp() },
                 onAccountSaved = { navController.navigateUp() }
             )

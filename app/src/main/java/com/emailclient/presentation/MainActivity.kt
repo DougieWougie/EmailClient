@@ -15,11 +15,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
@@ -195,10 +195,11 @@ fun EmailClientApp(viewModel: MainViewModel) {
                     NavigationDrawerItem(
                         icon = {
                             Icon(
-                                imageVector = if (folder.type == FolderType.TRASH)
-                                    Icons.Filled.Delete
-                                else
-                                    Icons.Filled.Email,
+                                imageVector = when (folder.type) {
+                                    FolderType.TRASH -> Icons.Filled.Delete
+                                    FolderType.ARCHIVE -> Icons.Filled.Archive
+                                    else -> Icons.Filled.Folder
+                                },
                                 contentDescription = null
                             )
                         },
@@ -230,7 +231,7 @@ fun EmailClientApp(viewModel: MainViewModel) {
 
                     customFolders.forEach { folder ->
                         NavigationDrawerItem(
-                            icon = { Icon(Icons.Filled.Email, contentDescription = null) },
+                            icon = { Icon(Icons.Filled.Folder, contentDescription = null) },
                             label = {
                                 Text(
                                     if (folder.unreadCount > 0)

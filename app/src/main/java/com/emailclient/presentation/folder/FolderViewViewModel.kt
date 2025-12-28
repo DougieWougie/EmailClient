@@ -181,8 +181,6 @@ class FolderViewViewModel @Inject constructor(
 
     fun getSelectedCount(): Int = _selectedEmailIds.value.size
 
-    fun getCurrentAccountId(): Long? = _folder.value?.accountId
-
     // Bulk operations
     fun bulkMarkAsRead(read: Boolean) {
         viewModelScope.launch {

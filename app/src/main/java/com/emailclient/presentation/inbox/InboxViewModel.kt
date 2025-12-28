@@ -241,8 +241,6 @@ class InboxViewModel @Inject constructor(
 
     fun getSelectedCount(): Int = _selectedEmailIds.value.size
 
-    fun getCurrentAccountId(): Long? = _currentAccountId.value
-
     // Bulk operations
     fun bulkMarkAsRead(read: Boolean) {
         viewModelScope.launch {

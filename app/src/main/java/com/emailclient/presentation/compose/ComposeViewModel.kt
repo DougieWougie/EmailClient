@@ -44,6 +44,7 @@ class ComposeViewModel @Inject constructor(
     companion object {
         private const val MAX_ATTACHMENT_SIZE = 25 * 1024 * 1024L // 25 MB
         private const val MAX_TOTAL_ATTACHMENT_SIZE = 50 * 1024 * 1024L // 50 MB
+        private val EMAIL_PATTERN = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
     }
 
     /**
@@ -213,9 +214,6 @@ class ComposeViewModel @Inject constructor(
     private fun parseEmailAddresses(addresses: String): List<String> {
         if (addresses.isEmpty()) return emptyList()
 
-        // Basic email regex pattern
-        val emailPattern = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
-
         return addresses.split(",")
             .map { it.trim() }
             .filter { it.isNotEmpty() }
@@ -227,7 +225,7 @@ class ComposeViewModel @Inject constructor(
                 }
 
                 // Validate email format
-                if (!emailPattern.matches(email)) {
+                if (!EMAIL_PATTERN.matches(email)) {
                     throw IllegalArgumentException("Invalid email address format: $email")
                 }
             }

@@ -6,9 +6,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Forward
+import androidx.compose.material.icons.filled.Reply
+import androidx.compose.material.icons.filled.ReplyAll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -60,16 +63,16 @@ fun EmailDetailScreen(
                 },
                 actions = {
                     IconButton(onClick = { onNavigateToCompose(emailId, false, false) }) {
-                        Icon(Icons.Filled.ArrowBack, "Reply")
+                        Icon(Icons.Filled.Reply, "Reply")
                     }
                     IconButton(onClick = { onNavigateToCompose(emailId, true, false) }) {
-                        Icon(Icons.Filled.ArrowBack, "Reply all")
+                        Icon(Icons.Filled.ReplyAll, "Reply all")
                     }
                     IconButton(onClick = { onNavigateToCompose(emailId, false, true) }) {
-                        Icon(Icons.Filled.ArrowForward, "Forward")
+                        Icon(Icons.Filled.Forward, "Forward")
                     }
                     IconButton(onClick = { viewModel.archiveEmail(emailId) }) {
-                        Icon(Icons.Filled.Delete, "Archive")
+                        Icon(Icons.Filled.Archive, "Archive")
                     }
                     IconButton(onClick = { viewModel.deleteEmail(emailId) }) {
                         Icon(Icons.Filled.Delete, "Delete")
