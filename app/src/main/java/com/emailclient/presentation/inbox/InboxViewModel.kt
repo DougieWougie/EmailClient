@@ -87,8 +87,10 @@ class InboxViewModel @Inject constructor(
             _error.value = null
 
             try {
+                android.util.Log.d("InboxViewModel", "Loading emails...")
                 // Get the default account
                 val accounts = accountRepository.getAllAccounts().first()
+                android.util.Log.d("InboxViewModel", "Found ${accounts.size} accounts")
                 if (accounts.isEmpty()) {
                     _error.value = "No accounts configured"
                     _isLoading.value = false
@@ -97,30 +99,49 @@ class InboxViewModel @Inject constructor(
 
                 val account = accounts.firstOrNull { it.isDefault } ?: accounts.first()
                 _currentAccountId.value = account.id
+                android.util.Log.d("InboxViewModel", "Using account: ${account.email}")
+
+                // Ensure folders exist for this account
+                android.util.Log.d("InboxViewModel", "Ensuring folders exist for account ${account.id}")
+                accountRepository.ensureFoldersExist(account.id)
 
                 // Get the inbox folder for that account
                 val inboxResult = folderRepository.getFolderByType(account.id, FolderType.INBOX)
+                android.util.Log.d("InboxViewModel", "Inbox folder result: $inboxResult")
                 when (inboxResult) {
                     is Result.Success -> {
                         val inbox = inboxResult.data
                         _currentFolderId.value = inbox.id
+                        android.util.Log.d("InboxViewModel", "Inbox folder found: ${inbox.displayName}")
+
+                        // Trigger initial sync in background
+                        viewModelScope.launch {
+                            android.util.Log.d("InboxViewModel", "Starting email sync...")
+                            val syncResult = emailRepository.syncEmails(account.id, inbox.id)
+                            android.util.Log.d("InboxViewModel", "Sync result: $syncResult")
+                        }
+
                         _isLoading.value = false
 
                         // Load emails from that folder
                         emailRepository.getEmailsByFolder(inbox.id).collect { emails ->
+                            android.util.Log.d("InboxViewModel", "Loaded ${emails.size} emails")
                             _allEmails.value = emails
                         }
                     }
                     is Result.Error -> {
+                        android.util.Log.e("InboxViewModel", "Inbox folder error: ${inboxResult.exception?.message}")
                         _error.value = "Inbox folder not found. Try syncing your account."
                         _isLoading.value = false
                     }
                     else -> {
+                        android.util.Log.e("InboxViewModel", "Unknown inbox result type")
                         _error.value = "Unknown error occurred"
                         _isLoading.value = false
                     }
                 }
             } catch (e: Exception) {
+                android.util.Log.e("InboxViewModel", "Error loading emails", e)
                 _error.value = e.message ?: "Failed to load emails"
                 _isLoading.value = false
             }

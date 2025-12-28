@@ -34,4 +34,6 @@ interface AccountRepository {
     suspend fun getPassword(accountId: Long): String?
 
     suspend fun updatePassword(accountId: Long, password: String)
+
+    suspend fun ensureFoldersExist(accountId: Long): Result<Unit>
 }

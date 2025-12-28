@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -72,6 +73,7 @@ class MainViewModel @Inject constructor(
 
     init {
         loadDefaultAccount()
+        ensureAccountsHaveFolders()
     }
 
     /**
@@ -79,13 +81,23 @@ class MainViewModel @Inject constructor(
      */
     private fun loadDefaultAccount() {
         viewModelScope.launch {
+            android.util.Log.d("MainViewModel", "Loading default account...")
             when (val result = accountRepository.getDefaultAccount()) {
-                is Result.Success -> _currentAccount.value = result.data
+                is Result.Success -> {
+                    android.util.Log.d("MainViewModel", "Default account loaded: ${result.data?.email}")
+                    _currentAccount.value = result.data
+                }
                 else -> {
-                    // Fall back to first account if no default is set
-                    allAccounts.value.firstOrNull()?.let {
+                    android.util.Log.d("MainViewModel", "No default account, checking all accounts...")
+                    // Wait for accounts to load from repository
+                    val accounts = accountRepository.getAllAccounts().first()
+                    android.util.Log.d("MainViewModel", "Found ${accounts.size} accounts")
+                    accounts.firstOrNull()?.let {
+                        android.util.Log.d("MainViewModel", "Using first account: ${it.email}")
                         _currentAccount.value = it
-                    }
+                        // Set it as default for future
+                        accountRepository.setDefaultAccount(it.id)
+                    } ?: android.util.Log.d("MainViewModel", "No accounts found")
                 }
             }
         }
@@ -110,5 +122,28 @@ class MainViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    /**
+     * Ensure all accounts have folders (creates defaults if missing)
+     */
+    private fun ensureAccountsHaveFolders() {
+        viewModelScope.launch {
+            val accounts = accountRepository.getAllAccounts().first()
+            accounts.forEach { account ->
+                val folderList = folderRepository.getFoldersByAccount(account.id).first()
+                if (folderList.isEmpty()) {
+                    android.util.Log.w("MainViewModel", "Account ${account.email} has no folders, creating defaults")
+                    createDefaultFoldersForAccount(account.id)
+                }
+            }
+        }
+    }
+
+    /**
+     * Create default folders for an account
+     */
+    private suspend fun createDefaultFoldersForAccount(accountId: Long) {
+        accountRepository.ensureFoldersExist(accountId)
     }
 }

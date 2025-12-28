@@ -14,6 +14,7 @@ import com.emailclient.domain.repository.AccountRepository
 import com.emailclient.util.Result
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -89,23 +90,29 @@ class AccountRepositoryImpl @Inject constructor(
             credentialManager.savePassword(accountId, password)
 
             // Fetch and store folders
-            val store = imapService.connect(account, password)
             try {
-                val folders = imapService.fetchFolders(store, accountId)
-                val folderEntities = folders.map { folder ->
-                    FolderEntity(
-                        accountId = accountId,
-                        name = folder.name,
-                        displayName = folder.displayName,
-                        type = folder.type,
-                        unreadCount = 0,
-                        totalCount = 0,
-                        syncEnabled = folder.syncEnabled
-                    )
+                val store = imapService.connect(account, password)
+                try {
+                    val folders = imapService.fetchFolders(store, accountId)
+                    val folderEntities = folders.map { folder ->
+                        FolderEntity(
+                            accountId = accountId,
+                            name = folder.name,
+                            displayName = folder.displayName,
+                            type = folder.type,
+                            unreadCount = 0,
+                            totalCount = 0,
+                            syncEnabled = folder.syncEnabled
+                        )
+                    }
+                    folderDao.insertFolders(folderEntities)
+                } finally {
+                    imapService.disconnect(store)
                 }
-                folderDao.insertFolders(folderEntities)
-            } finally {
-                imapService.disconnect(store)
+            } catch (e: Exception) {
+                // If folder fetch fails, create default folders
+                android.util.Log.w("AccountRepository", "Failed to fetch folders from server, creating defaults", e)
+                createDefaultFolders(accountId)
             }
 
             // If this is the first account, make it default
@@ -214,5 +221,72 @@ class AccountRepositoryImpl @Inject constructor(
 
     override suspend fun updatePassword(accountId: Long, password: String) {
         credentialManager.savePassword(accountId, password)
+    }
+
+    override suspend fun ensureFoldersExist(accountId: Long): Result<Unit> {
+        return try {
+            val folders = folderDao.getFoldersByAccount(accountId).first()
+            if (folders.isEmpty()) {
+                android.util.Log.d("AccountRepository", "Creating default folders for account $accountId")
+                createDefaultFolders(accountId)
+            }
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Result.Error(e, "Failed to ensure folders exist")
+        }
+    }
+
+    /**
+     * Create default folders when IMAP fetch fails
+     */
+    private suspend fun createDefaultFolders(accountId: Long) {
+        val defaultFolders = listOf(
+            FolderEntity(
+                accountId = accountId,
+                name = "INBOX",
+                displayName = "Inbox",
+                type = com.emailclient.domain.model.FolderType.INBOX,
+                unreadCount = 0,
+                totalCount = 0,
+                syncEnabled = true
+            ),
+            FolderEntity(
+                accountId = accountId,
+                name = "Sent",
+                displayName = "Sent",
+                type = com.emailclient.domain.model.FolderType.SENT,
+                unreadCount = 0,
+                totalCount = 0,
+                syncEnabled = true
+            ),
+            FolderEntity(
+                accountId = accountId,
+                name = "Drafts",
+                displayName = "Drafts",
+                type = com.emailclient.domain.model.FolderType.DRAFTS,
+                unreadCount = 0,
+                totalCount = 0,
+                syncEnabled = false
+            ),
+            FolderEntity(
+                accountId = accountId,
+                name = "Trash",
+                displayName = "Trash",
+                type = com.emailclient.domain.model.FolderType.TRASH,
+                unreadCount = 0,
+                totalCount = 0,
+                syncEnabled = false
+            ),
+            FolderEntity(
+                accountId = accountId,
+                name = "Spam",
+                displayName = "Spam",
+                type = com.emailclient.domain.model.FolderType.SPAM,
+                unreadCount = 0,
+                totalCount = 0,
+                syncEnabled = false
+            )
+        )
+        folderDao.insertFolders(defaultFolders)
     }
 }

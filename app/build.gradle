@@ -45,7 +45,9 @@ android {
         jvmTarget = '17'
         freeCompilerArgs += [
             "-Xjvm-default=all",
-            "-opt-in=kotlin.RequiresOptIn"
+            "-opt-in=kotlin.RequiresOptIn",
+            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
+            "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi"
         ]
     }
 
@@ -54,14 +56,21 @@ android {
             jvmTarget = "17"
             freeCompilerArgs += [
                 "-Xjvm-default=all",
-                "-opt-in=kotlin.RequiresOptIn"
+                "-opt-in=kotlin.RequiresOptIn",
+                "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
+                "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi"
             ]
         }
     }
 
     buildFeatures {
-        viewBinding true
+        compose true
+        viewBinding true  // Keep during migration
         dataBinding false
+    }
+
+    composeOptions {
+        kotlinCompilerExtensionVersion = '1.5.11'
     }
 
     packagingOptions {
@@ -85,8 +94,8 @@ dependencies {
     implementation 'androidx.activity:activity-ktx:1.8.2'
     implementation 'androidx.fragment:fragment-ktx:1.6.2'
 
-    // Material Design
-    implementation 'com.google.android.material:material:1.11.0'
+    // Material Design (keep for XML views during migration)
+    implementation 'com.google.android.material:material:1.12.0'
 
     // Navigation Component
     implementation 'androidx.navigation:navigation-fragment-ktx:2.7.6'
@@ -161,6 +170,47 @@ dependencies {
     androidTestImplementation 'androidx.test:rules:1.5.0'
     androidTestImplementation 'com.google.dagger:hilt-android-testing:2.48'
     kaptAndroidTest 'com.google.dagger:hilt-android-compiler:2.48'
+
+    // Jetpack Compose BOM
+    def composeBom = platform('androidx.compose:compose-bom:2024.12.01')
+    implementation composeBom
+    androidTestImplementation composeBom
+
+    // Compose Core
+    implementation 'androidx.compose.ui:ui'
+    implementation 'androidx.compose.ui:ui-graphics'
+    implementation 'androidx.compose.ui:ui-tooling-preview'
+    implementation 'androidx.compose.runtime:runtime'
+    implementation 'androidx.compose.foundation:foundation'
+
+    // Material3
+    implementation 'androidx.compose.material3:material3'
+    implementation 'androidx.compose.material3:material3-window-size-class'
+
+    // Integration with existing architecture
+    implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.7.0'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0'
+    implementation 'androidx.activity:activity-compose:1.8.2'
+
+    // Navigation for Compose
+    implementation 'androidx.navigation:navigation-compose:2.7.6'
+
+    // Hilt Navigation Compose
+    implementation 'androidx.hilt:hilt-navigation-compose:1.1.0'
+
+    // Coil for Compose (image loading)
+    implementation 'io.coil-kt:coil-compose:2.5.0'
+
+    // Accompanist (for system UI, permissions, etc.)
+    implementation 'com.google.accompanist:accompanist-systemuicontroller:0.32.0'
+    implementation 'com.google.accompanist:accompanist-permissions:0.32.0'
+
+    // Debug tooling
+    debugImplementation 'androidx.compose.ui:ui-tooling'
+    debugImplementation 'androidx.compose.ui:ui-test-manifest'
+
+    // Testing
+    androidTestImplementation 'androidx.compose.ui:ui-test-junit4'
 }
 
 // Allow references to generated code
