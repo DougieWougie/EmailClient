@@ -2,6 +2,7 @@ package com.emailclient.data.remote.imap
 
 import com.emailclient.domain.model.Account
 import com.emailclient.domain.model.Attachment
+import com.emailclient.domain.model.AuthenticationType
 import com.emailclient.domain.model.Email
 import com.emailclient.domain.model.EmailAddress
 import com.emailclient.domain.model.Folder as EmailFolder
@@ -25,10 +26,12 @@ class IMAPService @Inject constructor() {
 
     /**
      * Connect to IMAP server and return session
+     * Supports both PASSWORD and OAUTH2 authentication
      */
     suspend fun connect(
         account: Account,
-        password: String
+        password: String? = null,
+        accessToken: String? = null
     ): Store = withContext(Dispatchers.IO) {
         try {
             val props = Properties().apply {
@@ -65,10 +68,28 @@ class IMAPService @Inject constructor() {
                 put("mail.imap.timeout", "90000") // 90 seconds
                 put("mail.imap.writetimeout", "90000") // 90 seconds
 
-                // Authentication settings - prefer LOGIN over AUTHENTICATE PLAIN
-                // Some Dovecot servers have issues with AUTHENTICATE PLAIN
-                put("mail.imap.auth.login.disable", "false") // Enable LOGIN
-                put("mail.imap.auth.plain.disable", "true") // Disable PLAIN to force LOGIN
+                // Authentication settings based on type
+                when (account.imapConfig.authenticationType) {
+                    AuthenticationType.OAUTH2 -> {
+                        // XOAUTH2 SASL configuration for OAuth2
+                        put("mail.imap.auth.mechanisms", "XOAUTH2")
+                        put("mail.imap.sasl.enable", "true")
+                        put("mail.imap.sasl.mechanisms", "XOAUTH2")
+                        put("mail.imap.auth.plain.disable", "true")
+                        put("mail.imap.auth.login.disable", "true")
+                    }
+                    AuthenticationType.PASSWORD -> {
+                        // Prefer LOGIN over AUTHENTICATE PLAIN
+                        // Some Dovecot servers have issues with AUTHENTICATE PLAIN
+                        put("mail.imap.auth.login.disable", "false") // Enable LOGIN
+                        put("mail.imap.auth.plain.disable", "true") // Disable PLAIN to force LOGIN
+                    }
+                    else -> {
+                        // Default to PASSWORD authentication
+                        put("mail.imap.auth.login.disable", "false")
+                        put("mail.imap.auth.plain.disable", "true")
+                    }
+                }
 
                 // Android-specific settings
                 put("mail.imap.ssl.socketFactory.class", "javax.net.ssl.SSLSocketFactory")
@@ -79,11 +100,32 @@ class IMAPService @Inject constructor() {
             session.debug = false
             val store = session.getStore("imap")
 
-            store.connect(
-                account.imapConfig.host,
-                account.imapConfig.username,
-                password
-            )
+            // Connect with appropriate authentication method
+            when (account.imapConfig.authenticationType) {
+                AuthenticationType.OAUTH2 -> {
+                    requireNotNull(accessToken) { "Access token required for OAuth2 authentication" }
+                    // OAuth2 XOAUTH2 SASL authentication string format:
+                    // user=email\x01auth=Bearer token\x01\x01
+                    val authString = "user=${account.email}\u0001auth=Bearer $accessToken\u0001\u0001"
+                    store.connect(account.imapConfig.host, account.email, authString)
+                }
+                AuthenticationType.PASSWORD -> {
+                    requireNotNull(password) { "Password required for PASSWORD authentication" }
+                    store.connect(
+                        account.imapConfig.host,
+                        account.imapConfig.username,
+                        password
+                    )
+                }
+                else -> {
+                    requireNotNull(password) { "Password required for authentication" }
+                    store.connect(
+                        account.imapConfig.host,
+                        account.imapConfig.username,
+                        password
+                    )
+                }
+            }
             store
         } catch (e: AuthenticationFailedException) {
             android.util.Log.e("IMAPService", "✗ IMAP Authentication FAILED")

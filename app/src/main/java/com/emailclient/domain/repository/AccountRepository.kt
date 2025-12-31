@@ -36,4 +36,16 @@ interface AccountRepository {
     suspend fun updatePassword(accountId: Long, password: String)
 
     suspend fun ensureFoldersExist(accountId: Long): Result<Unit>
+
+    // OAuth2-specific methods
+    suspend fun addOAuth2Account(
+        account: Account,
+        accessToken: String,
+        refreshToken: String,
+        expiresAt: Long
+    ): Result<Long>
+
+    suspend fun testOAuth2Connection(account: Account, accessToken: String): Result<Boolean>
+
+    suspend fun refreshAccountToken(accountId: Long): Result<String>
 }

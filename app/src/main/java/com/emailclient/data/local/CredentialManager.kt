@@ -89,6 +89,75 @@ class CredentialManager @Inject constructor(
     }
 
     /**
+     * Delete OAuth2 access token
+     */
+    fun deleteAccessToken(accountId: Long) {
+        encryptedPrefs.edit()
+            .remove(getAccessTokenKey(accountId))
+            .apply()
+    }
+
+    /**
+     * Delete OAuth2 refresh token
+     */
+    fun deleteRefreshToken(accountId: Long) {
+        encryptedPrefs.edit()
+            .remove(getRefreshTokenKey(accountId))
+            .apply()
+    }
+
+    /**
+     * Store OAuth2 token expiry timestamp
+     */
+    fun saveTokenExpiry(accountId: Long, expiresAtMillis: Long) {
+        encryptedPrefs.edit()
+            .putLong(getTokenExpiryKey(accountId), expiresAtMillis)
+            .apply()
+    }
+
+    /**
+     * Retrieve OAuth2 token expiry timestamp
+     */
+    fun getTokenExpiry(accountId: Long): Long? {
+        val expiry = encryptedPrefs.getLong(getTokenExpiryKey(accountId), -1L)
+        return if (expiry == -1L) null else expiry
+    }
+
+    /**
+     * Delete OAuth2 token expiry
+     */
+    fun deleteTokenExpiry(accountId: Long) {
+        encryptedPrefs.edit()
+            .remove(getTokenExpiryKey(accountId))
+            .apply()
+    }
+
+    /**
+     * Store OAuth2 state (code verifier for PKCE)
+     */
+    fun saveOAuthState(state: String) {
+        encryptedPrefs.edit()
+            .putString(OAUTH_STATE_KEY, state)
+            .apply()
+    }
+
+    /**
+     * Retrieve OAuth2 state (code verifier for PKCE)
+     */
+    fun getOAuthState(): String? {
+        return encryptedPrefs.getString(OAUTH_STATE_KEY, null)
+    }
+
+    /**
+     * Clear OAuth2 state after token exchange
+     */
+    fun clearOAuthState() {
+        encryptedPrefs.edit()
+            .remove(OAUTH_STATE_KEY)
+            .apply()
+    }
+
+    /**
      * Delete all credentials for an account
      */
     fun deleteAllCredentials(accountId: Long) {
@@ -96,6 +165,7 @@ class CredentialManager @Inject constructor(
             .remove(getPasswordKey(accountId))
             .remove(getAccessTokenKey(accountId))
             .remove(getRefreshTokenKey(accountId))
+            .remove(getTokenExpiryKey(accountId))
             .apply()
     }
 
@@ -106,7 +176,12 @@ class CredentialManager @Inject constructor(
         encryptedPrefs.edit().clear().apply()
     }
 
+    companion object {
+        private const val OAUTH_STATE_KEY = "oauth_state"
+    }
+
     private fun getPasswordKey(accountId: Long) = "password_$accountId"
     private fun getAccessTokenKey(accountId: Long) = "access_token_$accountId"
     private fun getRefreshTokenKey(accountId: Long) = "refresh_token_$accountId"
+    private fun getTokenExpiryKey(accountId: Long) = "token_expiry_$accountId"
 }

@@ -26,6 +26,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import com.emailclient.presentation.components.ProfileImage
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
@@ -121,10 +122,10 @@ fun EmailClientApp(viewModel: MainViewModel) {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Filled.AccountCircle,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
+                                ProfileImage(
+                                    imageUri = currentAccount?.profileImageUri,
+                                    contentDescription = "Account profile image",
+                                    size = 32.dp
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
@@ -151,10 +152,11 @@ fun EmailClientApp(viewModel: MainViewModel) {
                                         accountMenuExpanded = false
                                     },
                                     leadingIcon = {
-                                        Icon(
-                                            Icons.Filled.AccountCircle,
+                                        ProfileImage(
+                                            imageUri = account.profileImageUri,
                                             contentDescription = null,
-                                            tint = if (account.id == currentAccount?.id)
+                                            size = 24.dp,
+                                            iconTint = if (account.id == currentAccount?.id)
                                                 MaterialTheme.colorScheme.primary
                                             else
                                                 MaterialTheme.colorScheme.onSurface
@@ -171,10 +173,10 @@ fun EmailClientApp(viewModel: MainViewModel) {
                                 .padding(vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                Icons.Filled.AccountCircle,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
+                            ProfileImage(
+                                imageUri = currentAccount?.profileImageUri,
+                                contentDescription = "Account profile image",
+                                size = 32.dp
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(

@@ -1,6 +1,7 @@
 package com.emailclient.data.remote.smtp
 
 import com.emailclient.domain.model.Account
+import com.emailclient.domain.model.AuthenticationType
 import com.emailclient.domain.model.SecurityType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -33,10 +34,12 @@ class SMTPService @Inject constructor() {
 
     /**
      * Send an email via SMTP
+     * Supports both PASSWORD and OAUTH2 authentication
      */
     suspend fun sendEmail(
         account: Account,
-        password: String,
+        password: String? = null,
+        accessToken: String? = null,
         to: List<String>,
         cc: List<String> = emptyList(),
         bcc: List<String> = emptyList(),
@@ -46,7 +49,7 @@ class SMTPService @Inject constructor() {
         attachments: List<AttachmentData> = emptyList()
     ): Boolean = withContext(Dispatchers.IO) {
         try {
-            val session = createSession(account, password)
+            val session = createSession(account, password, accessToken)
             val message = createMessage(session, account, to, cc, bcc, subject, body, isHtml, attachments)
 
             Transport.send(message)
@@ -84,8 +87,9 @@ class SMTPService @Inject constructor() {
 
     /**
      * Create SMTP session with authentication
+     * Supports both PASSWORD and OAUTH2 authentication
      */
-    private fun createSession(account: Account, password: String): Session {
+    private fun createSession(account: Account, password: String?, accessToken: String?): Session {
         val props = Properties().apply {
             put("mail.smtp.host", account.smtpConfig.host)
             put("mail.smtp.port", account.smtpConfig.port.toString())
@@ -120,10 +124,28 @@ class SMTPService @Inject constructor() {
             put("mail.smtp.timeout", "90000") // 90 seconds
             put("mail.smtp.writetimeout", "90000") // 90 seconds
 
-            // Authentication settings - prefer LOGIN over AUTHENTICATE PLAIN
-            // Some mail servers have issues with AUTHENTICATE PLAIN
-            put("mail.smtp.auth.login.disable", "false") // Enable LOGIN
-            put("mail.smtp.auth.plain.disable", "true") // Disable PLAIN to force LOGIN
+            // Authentication settings based on type
+            when (account.smtpConfig.authenticationType) {
+                AuthenticationType.OAUTH2 -> {
+                    // XOAUTH2 SASL configuration for OAuth2
+                    put("mail.smtp.auth.mechanisms", "XOAUTH2")
+                    put("mail.smtp.sasl.enable", "true")
+                    put("mail.smtp.sasl.mechanisms", "XOAUTH2")
+                    put("mail.smtp.auth.plain.disable", "true")
+                    put("mail.smtp.auth.login.disable", "true")
+                }
+                AuthenticationType.PASSWORD -> {
+                    // Prefer LOGIN over AUTHENTICATE PLAIN
+                    // Some mail servers have issues with AUTHENTICATE PLAIN
+                    put("mail.smtp.auth.login.disable", "false") // Enable LOGIN
+                    put("mail.smtp.auth.plain.disable", "true") // Disable PLAIN to force LOGIN
+                }
+                else -> {
+                    // Default to PASSWORD authentication
+                    put("mail.smtp.auth.login.disable", "false")
+                    put("mail.smtp.auth.plain.disable", "true")
+                }
+            }
 
             // Android-specific settings
             put("mail.smtp.ssl.socketFactory.class", "javax.net.ssl.SSLSocketFactory")
@@ -132,7 +154,23 @@ class SMTPService @Inject constructor() {
 
         return Session.getInstance(props, object : Authenticator() {
             override fun getPasswordAuthentication(): PasswordAuthentication {
-                return PasswordAuthentication(account.smtpConfig.username, password)
+                return when (account.smtpConfig.authenticationType) {
+                    AuthenticationType.OAUTH2 -> {
+                        requireNotNull(accessToken) { "Access token required for OAuth2 authentication" }
+                        // OAuth2 XOAUTH2 SASL authentication string format:
+                        // user=email\x01auth=Bearer token\x01\x01
+                        val authString = "user=${account.email}\u0001auth=Bearer $accessToken\u0001\u0001"
+                        PasswordAuthentication(account.email, authString)
+                    }
+                    AuthenticationType.PASSWORD -> {
+                        requireNotNull(password) { "Password required for PASSWORD authentication" }
+                        PasswordAuthentication(account.smtpConfig.username, password)
+                    }
+                    else -> {
+                        requireNotNull(password) { "Password required for authentication" }
+                        PasswordAuthentication(account.smtpConfig.username, password)
+                    }
+                }
             }
         })
     }
@@ -225,21 +263,38 @@ class SMTPService @Inject constructor() {
     /**
      * Test SMTP connection
      */
-    suspend fun testConnection(account: Account, password: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun testConnection(account: Account, password: String? = null, accessToken: String? = null): Boolean = withContext(Dispatchers.IO) {
         var transport: Transport? = null
         try {
             android.util.Log.d("SMTPService", "Testing SMTP connection to ${account.smtpConfig.host}:${account.smtpConfig.port} with ${account.smtpConfig.securityType}")
 
-            val session = createSession(account, password)
+            val session = createSession(account, password, accessToken)
             transport = session.getTransport("smtp")
 
             android.util.Log.d("SMTPService", "Connecting to SMTP server...")
-            transport.connect(
-                account.smtpConfig.host,
-                account.smtpConfig.port,
-                account.smtpConfig.username,
-                password
-            )
+
+            // Connect with appropriate authentication
+            when (account.smtpConfig.authenticationType) {
+                AuthenticationType.OAUTH2 -> {
+                    requireNotNull(accessToken) { "Access token required for OAuth2 authentication" }
+                    val authString = "user=${account.email}\u0001auth=Bearer $accessToken\u0001\u0001"
+                    transport.connect(
+                        account.smtpConfig.host,
+                        account.smtpConfig.port,
+                        account.email,
+                        authString
+                    )
+                }
+                else -> {
+                    requireNotNull(password) { "Password required for PASSWORD authentication" }
+                    transport.connect(
+                        account.smtpConfig.host,
+                        account.smtpConfig.port,
+                        account.smtpConfig.username,
+                        password
+                    )
+                }
+            }
 
             val isConnected = transport.isConnected
             android.util.Log.d("SMTPService", "SMTP connection result: $isConnected")

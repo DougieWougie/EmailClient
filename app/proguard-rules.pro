@@ -28,9 +28,14 @@
 -keep class javax.inject.** { *; }
 -keep class * extends dagger.hilt.android.internal.managers.ViewComponentManager$FragmentContextWrapper { *; }
 
-# Keep AppAuth
+# Keep AppAuth OAuth2 library
 -keep class net.openid.appauth.** { *; }
 -dontwarn net.openid.appauth.**
+-keepclassmembers class net.openid.appauth.** { *; }
+
+# Keep OAuth2 models
+-keep class com.emailclient.data.remote.oauth.** { *; }
+-keepclassmembers class com.emailclient.data.remote.oauth.** { *; }
 
 # Retrofit
 -keepattributes Signature, InnerClasses, EnclosingMethod

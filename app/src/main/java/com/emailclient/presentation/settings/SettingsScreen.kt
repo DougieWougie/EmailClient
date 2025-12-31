@@ -54,6 +54,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.emailclient.domain.model.Account
 import com.emailclient.domain.model.SwipeAction
+import com.emailclient.presentation.components.ProfileImage
 
 /**
  * Settings screen - Compose version
@@ -303,9 +304,10 @@ private fun AccountListItem(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(
-                    Icons.Default.AccountCircle,
-                    contentDescription = null,
+                ProfileImage(
+                    imageUri = account.profileImageUri,
+                    contentDescription = "Account profile image",
+                    size = 40.dp,
                     modifier = Modifier.padding(end = 12.dp)
                 )
                 Column(modifier = Modifier.weight(1f)) {

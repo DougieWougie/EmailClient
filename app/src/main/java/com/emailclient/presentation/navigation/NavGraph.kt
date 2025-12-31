@@ -2,6 +2,7 @@ package com.emailclient.presentation.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -12,7 +13,9 @@ import com.emailclient.presentation.detail.EmailDetailScreen
 import com.emailclient.presentation.folder.FolderViewScreen
 import com.emailclient.presentation.folders.FolderManagementScreen
 import com.emailclient.presentation.inbox.InboxScreen
+import com.emailclient.presentation.oauth.OAuth2LoginScreen
 import com.emailclient.presentation.settings.SettingsScreen
+import com.emailclient.presentation.setup.AccountSetupViewModel
 import com.emailclient.presentation.setup.ManualConfigScreen
 import com.emailclient.presentation.setup.WelcomeScreen
 
@@ -148,7 +151,50 @@ fun EmailClientNavHost(
             ManualConfigScreen(
                 accountId = accountId,
                 onNavigateBack = { navController.navigateUp() },
-                onAccountSaved = { navController.navigateUp() }
+                onAccountSaved = { navController.navigateUp() },
+                onNavigateToOAuth2 = { email, displayName ->
+                    navController.navigate(Screen.OAuth2Login.createRoute(email, displayName))
+                }
+            )
+        }
+
+        composable(
+            route = Screen.OAuth2Login.route,
+            arguments = listOf(
+                navArgument("email") { type = NavType.StringType },
+                navArgument("displayName") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val email = backStackEntry.arguments?.getString("email") ?: return@composable
+            val displayName = backStackEntry.arguments?.getString("displayName") ?: return@composable
+
+            // Get shared AccountSetupViewModel from parent nav graph
+            val setupViewModel: AccountSetupViewModel = hiltViewModel()
+
+            OAuth2LoginScreen(
+                email = email,
+                displayName = displayName,
+                onAuthSuccess = { accessToken, refreshToken, expiresAt ->
+                    // Add OAuth2 account via shared ViewModel
+                    setupViewModel.addOAuth2Account(
+                        email = email,
+                        displayName = displayName,
+                        accessToken = accessToken,
+                        refreshToken = refreshToken,
+                        expiresAt = expiresAt
+                    )
+                    // Navigate back to inbox on success
+                    navController.navigate(Screen.Inbox.route) {
+                        popUpTo(Screen.Welcome.route) { inclusive = true }
+                    }
+                },
+                onAuthCancelled = {
+                    // Navigate back to manual config screen
+                    navController.navigateUp()
+                },
+                onNavigateBack = {
+                    navController.navigateUp()
+                }
             )
         }
     }

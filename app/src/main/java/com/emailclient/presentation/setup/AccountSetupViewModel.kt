@@ -7,6 +7,7 @@ import com.emailclient.data.local.ProfileImageManager
 import com.emailclient.data.remote.AutoDiscoveryService
 import com.emailclient.domain.model.Account
 import com.emailclient.domain.model.AccountType
+import com.emailclient.domain.model.AuthenticationType
 import com.emailclient.domain.model.SecurityType
 import com.emailclient.domain.model.ServerConfig
 import com.emailclient.domain.repository.AccountRepository
@@ -284,6 +285,110 @@ class AccountSetupViewModel @Inject constructor(
                     else -> {
                         _uiState.value = AccountSetupState.Error("Unknown error occurred")
                     }
+                }
+            }
+        }
+    }
+
+    /**
+     * Add OAuth2 account (for Microsoft Outlook/Office 365)
+     * Called after successful OAuth2 authentication
+     */
+    fun addOAuth2Account(
+        email: String,
+        displayName: String,
+        accessToken: String,
+        refreshToken: String,
+        expiresAt: Long,
+        config: AutoDiscoveryService.DiscoveredConfig? = null
+    ) {
+        viewModelScope.launch {
+            _uiState.value = AccountSetupState.Adding
+
+            android.util.Log.d("AccountSetup", "=== Adding OAuth2 Account ===")
+            android.util.Log.d("AccountSetup", "Email: $email")
+            android.util.Log.d("AccountSetup", "Display Name: $displayName")
+            android.util.Log.d("AccountSetup", "Token expires at: $expiresAt")
+
+            // Use discovered config if available, otherwise use default Outlook settings
+            val finalConfig = config ?: AutoDiscoveryService.DiscoveredConfig(
+                imapConfig = ServerConfig(
+                    host = "outlook.office365.com",
+                    port = 993,
+                    username = email,
+                    securityType = SecurityType.SSL_TLS,
+                    authenticationType = AuthenticationType.OAUTH2
+                ),
+                smtpConfig = ServerConfig(
+                    host = "smtp.office365.com",
+                    port = 587,
+                    username = email,
+                    securityType = SecurityType.STARTTLS,
+                    authenticationType = AuthenticationType.OAUTH2
+                ),
+                provider = "Outlook",
+                source = AutoDiscoveryService.DiscoverySource.KNOWN_PROVIDER,
+                supportsOAuth2 = true,
+                recommendedAuthType = AuthenticationType.OAUTH2
+            )
+
+            val account = Account(
+                email = email,
+                displayName = displayName,
+                accountType = AccountType.OUTLOOK,
+                imapConfig = finalConfig.imapConfig,
+                smtpConfig = finalConfig.smtpConfig,
+                profileImageUri = profileImageUri
+            )
+
+            when (val addResult = accountRepository.addOAuth2Account(
+                account = account,
+                accessToken = accessToken,
+                refreshToken = refreshToken,
+                expiresAt = expiresAt
+            )) {
+                is Result.Success -> {
+                    val accountId = addResult.data
+
+                    // Save profile image securely if one was selected
+                    if (pendingImageUri != null) {
+                        when (val imageResult = profileImageManager.saveProfileImage(
+                            pendingImageUri!!,
+                            accountId
+                        )) {
+                            is ProfileImageManager.Result.Success -> {
+                                // Update account with saved image URI
+                                val updatedAccount = account.copy(
+                                    id = accountId,
+                                    profileImageUri = imageResult.imageUri
+                                )
+                                accountRepository.updateAccount(updatedAccount)
+                            }
+                            is ProfileImageManager.Result.Error -> {
+                                // Log error but don't fail account creation
+                                android.util.Log.e("AccountSetup",
+                                    "Failed to save profile image: ${imageResult.message}")
+                            }
+                        }
+                    }
+
+                    // Schedule background sync
+                    workManagerHelper.schedulePeriodicSync()
+
+                    // Schedule OAuth2 token refresh
+                    workManagerHelper.scheduleTokenRefresh()
+
+                    android.util.Log.d("AccountSetup", "✓ OAuth2 account added successfully! Account ID: $accountId")
+                    _uiState.value = AccountSetupState.Success(accountId)
+                }
+                is Result.Error -> {
+                    android.util.Log.e("AccountSetup", "✗ Failed to add OAuth2 account: ${addResult.message}", addResult.exception)
+                    _uiState.value = AccountSetupState.Error(
+                        addResult.message ?: "Failed to add OAuth2 account"
+                    )
+                }
+                else -> {
+                    _uiState.value = AccountSetupState.Error("Unknown error occurred")
                 }
             }
         }

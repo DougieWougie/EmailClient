@@ -20,18 +20,22 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.emailclient.presentation.components.EmailListItem
+import com.emailclient.presentation.components.SwipeableEmailListItem
 
 /**
  * Folder view screen - Compose version
@@ -51,8 +55,28 @@ fun FolderViewScreen(
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val isSelectionMode by viewModel.isSelectionMode.collectAsStateWithLifecycle()
     val selectedEmailIds by viewModel.selectedEmailIds.collectAsStateWithLifecycle()
+    val swipeActionResult by viewModel.swipeActionResult.collectAsStateWithLifecycle()
+
+    val swipeLeftAction = viewModel.getSwipeLeftAction()
+    val swipeRightAction = viewModel.getSwipeRightAction()
 
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Handle swipe action result with snackbar
+    LaunchedEffect(swipeActionResult) {
+        swipeActionResult?.let { message ->
+            val result = snackbarHostState.showSnackbar(
+                message = message,
+                actionLabel = "Undo"
+            )
+            when (result) {
+                SnackbarResult.ActionPerformed -> viewModel.undoSwipeAction()
+                SnackbarResult.Dismissed -> viewModel.finalizeSwipeAction()
+            }
+            viewModel.clearSwipeActionResult()
+        }
+    }
 
     // Folder is automatically loaded in ViewModel init
 
@@ -62,6 +86,9 @@ fun FolderViewScreen(
     }
 
     Scaffold(
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState)
+        },
         topBar = {
             if (isSelectionMode) {
                 TopAppBar(
@@ -136,10 +163,12 @@ fun FolderViewScreen(
                             items = emails,
                             key = { email -> email.id }
                         ) { email ->
-                            EmailListItem(
+                            SwipeableEmailListItem(
                                 email = email,
                                 isSelected = email.id in selectedEmailIds,
                                 isSelectionMode = isSelectionMode,
+                                swipeLeftAction = swipeLeftAction,
+                                swipeRightAction = swipeRightAction,
                                 onClick = {
                                     if (isSelectionMode) {
                                         viewModel.toggleEmailSelection(email.id)
@@ -149,6 +178,9 @@ fun FolderViewScreen(
                                 },
                                 onLongClick = {
                                     viewModel.enterSelectionMode(email.id)
+                                },
+                                onSwipe = { action ->
+                                    viewModel.performSwipeAction(email.id, action)
                                 }
                             )
                         }

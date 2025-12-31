@@ -7,8 +7,10 @@ import com.emailclient.data.local.entities.FolderEntity
 import com.emailclient.data.local.entities.toDomain
 import com.emailclient.data.local.entities.toEntity
 import com.emailclient.data.remote.imap.IMAPService
+import com.emailclient.data.remote.oauth.TokenManager
 import com.emailclient.data.remote.smtp.SMTPService
 import com.emailclient.domain.model.Account
+import com.emailclient.domain.model.AuthenticationType
 import com.emailclient.domain.model.FolderType
 import com.emailclient.domain.repository.AccountRepository
 import com.emailclient.util.Result
@@ -27,7 +29,8 @@ class AccountRepositoryImpl @Inject constructor(
     private val folderDao: FolderDao,
     private val credentialManager: CredentialManager,
     private val imapService: IMAPService,
-    private val smtpService: SMTPService
+    private val smtpService: SMTPService,
+    private val tokenManager: TokenManager
 ) : AccountRepository {
 
     override fun getAllAccounts(): Flow<List<Account>> {
@@ -288,5 +291,97 @@ class AccountRepositoryImpl @Inject constructor(
             )
         )
         folderDao.insertFolders(defaultFolders)
+    }
+
+    // OAuth2-specific methods
+
+    override suspend fun addOAuth2Account(
+        account: Account,
+        accessToken: String,
+        refreshToken: String,
+        expiresAt: Long
+    ): Result<Long> = withContext(Dispatchers.IO) {
+        try {
+            android.util.Log.d("AccountRepository", "Adding OAuth2 account: ${account.email}")
+
+            // Test OAuth2 connection first
+            val testResult = testOAuth2Connection(account, accessToken)
+            if (testResult !is Result.Success || !testResult.data) {
+                return@withContext Result.Error(
+                    Exception("OAuth2 connection test failed"),
+                    "Failed to connect with OAuth2 credentials"
+                )
+            }
+
+            // Insert account into database
+            val accountId = accountDao.insertAccount(account.toEntity())
+            android.util.Log.d("AccountRepository", "Account inserted with ID: $accountId")
+
+            // Store OAuth2 tokens
+            tokenManager.saveTokens(accountId, accessToken, refreshToken, expiresAt)
+            android.util.Log.d("AccountRepository", "OAuth2 tokens saved for account $accountId")
+
+            // Fetch folders from IMAP server
+            try {
+                val store = imapService.connect(account.copy(id = accountId), accessToken = accessToken)
+                val folders = imapService.fetchFolders(store, accountId)
+                imapService.disconnect(store)
+
+                if (folders.isNotEmpty()) {
+                    val folderEntities = folders.map { folder ->
+                        FolderEntity(
+                            accountId = accountId,
+                            name = folder.name,
+                            displayName = folder.displayName,
+                            type = folder.type,
+                            unreadCount = folder.unreadCount,
+                            totalCount = folder.totalCount,
+                            syncEnabled = folder.type == FolderType.INBOX
+                        )
+                    }
+                    folderDao.insertFolders(folderEntities)
+                    android.util.Log.d("AccountRepository", "Fetched ${folders.size} folders from server")
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("AccountRepository", "Failed to fetch folders from server, creating defaults", e)
+                createDefaultFolders(accountId)
+            }
+
+            Result.Success(accountId)
+        } catch (e: Exception) {
+            android.util.Log.e("AccountRepository", "Failed to add OAuth2 account", e)
+            Result.Error(e, "Failed to add OAuth2 account: ${e.message}")
+        }
+    }
+
+    override suspend fun testOAuth2Connection(account: Account, accessToken: String): Result<Boolean> =
+        withContext(Dispatchers.IO) {
+            try {
+                android.util.Log.d("AccountRepository", "Testing OAuth2 connection for ${account.email}")
+
+                // Test IMAP connection
+                val imapStore = imapService.connect(account, accessToken = accessToken)
+                imapService.disconnect(imapStore)
+                android.util.Log.d("AccountRepository", "✓ IMAP OAuth2 connection successful")
+
+                // Test SMTP connection
+                smtpService.testConnection(account, accessToken = accessToken)
+                android.util.Log.d("AccountRepository", "✓ SMTP OAuth2 connection successful")
+
+                Result.Success(true)
+            } catch (e: Exception) {
+                android.util.Log.e("AccountRepository", "✗ OAuth2 connection test failed", e)
+                Result.Error(e, "OAuth2 connection test failed: ${e.message}")
+            }
+        }
+
+    override suspend fun refreshAccountToken(accountId: Long): Result<String> {
+        return try {
+            android.util.Log.d("AccountRepository", "Refreshing token for account $accountId")
+            tokenManager.refreshTokenIfNeeded(accountId)
+        } catch (e: Exception) {
+            android.util.Log.e("AccountRepository", "Token refresh failed for account $accountId", e)
+            Result.Error(e, "Failed to refresh token: ${e.message}")
+        }
     }
 }

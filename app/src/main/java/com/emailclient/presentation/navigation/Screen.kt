@@ -39,4 +39,8 @@ sealed class Screen(val route: String) {
             "manual_config"
         }
     }
+
+    object OAuth2Login : Screen("oauth2_login/{email}/{displayName}") {
+        fun createRoute(email: String, displayName: String) = "oauth2_login/$email/$displayName"
+    }
 }

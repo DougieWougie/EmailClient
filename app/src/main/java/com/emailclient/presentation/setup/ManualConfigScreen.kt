@@ -62,6 +62,7 @@ fun ManualConfigScreen(
     accountId: Long? = null,
     onNavigateBack: () -> Unit,
     onAccountSaved: () -> Unit,
+    onNavigateToOAuth2: (email: String, displayName: String) -> Unit = { _, _ -> },
     viewModel: AccountSetupViewModel = hiltViewModel(),
     modifier: Modifier = Modifier
 ) {
@@ -271,6 +272,65 @@ fun ManualConfigScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 modifier = Modifier.fillMaxWidth()
             )
+
+            // OAuth2 sign-in option for supported providers (Outlook)
+            if (discoveredConfig?.supportsOAuth2 == true) {
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Divider with "OR" text
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(1.dp)
+                            .padding(end = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        androidx.compose.material3.HorizontalDivider()
+                    }
+                    Text(
+                        text = "OR",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(1.dp)
+                            .padding(start = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        androidx.compose.material3.HorizontalDivider()
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Microsoft OAuth2 sign-in button (Recommended)
+                Button(
+                    onClick = {
+                        if (email.isNotBlank()) {
+                            onNavigateToOAuth2(email, displayName.ifBlank { email })
+                        }
+                    },
+                    enabled = email.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Sign in with Microsoft (Recommended)")
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "OAuth2 authentication provides better security and doesn't require an app-specific password.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 

@@ -1,5 +1,6 @@
 package com.emailclient.data.remote
 
+import com.emailclient.domain.model.AuthenticationType
 import com.emailclient.domain.model.SecurityType
 import com.emailclient.domain.model.ServerConfig
 import kotlinx.coroutines.Dispatchers
@@ -22,7 +23,9 @@ class AutoDiscoveryService @Inject constructor() {
         val imapConfig: ServerConfig,
         val smtpConfig: ServerConfig,
         val provider: String,
-        val source: DiscoverySource
+        val source: DiscoverySource,
+        val supportsOAuth2: Boolean = false,
+        val recommendedAuthType: AuthenticationType = AuthenticationType.PASSWORD
     )
 
     enum class DiscoverySource {
@@ -102,16 +105,20 @@ class AutoDiscoveryService @Inject constructor() {
                     host = "outlook.office365.com",
                     port = 993,
                     username = "",
-                    securityType = SecurityType.SSL_TLS
+                    securityType = SecurityType.SSL_TLS,
+                    authenticationType = AuthenticationType.OAUTH2
                 ),
                 smtpConfig = ServerConfig(
                     host = "smtp.office365.com",
                     port = 587,
                     username = "",
-                    securityType = SecurityType.STARTTLS
+                    securityType = SecurityType.STARTTLS,
+                    authenticationType = AuthenticationType.OAUTH2
                 ),
                 provider = "Outlook",
-                source = DiscoverySource.KNOWN_PROVIDER
+                source = DiscoverySource.KNOWN_PROVIDER,
+                supportsOAuth2 = true,
+                recommendedAuthType = AuthenticationType.OAUTH2
             )
 
             // Yahoo
